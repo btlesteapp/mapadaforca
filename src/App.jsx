@@ -23,6 +23,7 @@ import {
   FileSpreadsheet
 } from 'lucide-react';
 import './App.css';
+import { POLICIAIS } from './data/policiais.js';
 
 // Pre-defined units for occurrences (includes BTL LESTE and SEG)
 const OCCURRENCE_UNITS = [
@@ -157,6 +158,30 @@ const IncidentListField = ({ label, items, placeholder, onAdd, onChange, onRemov
       </div>
     </div>
   );
+};
+
+const normalizeRank = (rank) => (rank || '').toUpperCase().replace(/°/g, 'º').trim();
+
+const isAllowedSA = (rank) => {
+  return normalizeRank(rank) === 'CAP QOPM';
+};
+
+const isAllowedSSA = (rank) => {
+  const r = normalizeRank(rank);
+  const allowed = [
+    'ASP OF PM',
+    'ASP OF',
+    '1º TEN QOPM',
+    '1º TEN QOAPM',
+    '1º TEN QPPM',
+    '1° TEN QPPM',
+    '2º TEN QOPM',
+    '2º TEN QOAPM',
+    '1º SGT QPPM',
+    '2º SGT QPPM',
+    '3º SGT QPPM'
+  ];
+  return allowed.includes(r);
 };
 
 function App() {
@@ -301,6 +326,25 @@ function App() {
     showToast('Logo redefinida para a padrão.');
   };
 
+  const handleCpoIdChange = (idValue) => {
+    setHeader(prev => {
+      const newHeader = { ...prev, cpoId: idValue };
+      const cleanId = idValue.toString().trim();
+      const p = POLICIAIS.find(x => x.rg.toString().trim() === cleanId);
+      if (p) {
+        if (isAllowedSA(p.postoGrad)) {
+          newHeader.cpoNome = `${p.postoGrad} ${p.nomeGuerra}`;
+        } else {
+          showToast(`O policial ${p.nomeGuerra} (${p.postoGrad}) não pode ser SA Leste. Apenas CAP QOPM é permitido.`, 'error');
+          newHeader.cpoNome = '';
+        }
+      } else if (cleanId === '') {
+        newHeader.cpoNome = '';
+      }
+      return newHeader;
+    });
+  };
+
   // Table value change triggers (Mapa da Força)
   const handleUnitChange = (id, field, value) => {
     setUnits(prev => prev.map(u => {
@@ -309,7 +353,25 @@ function App() {
           const parsed = parseInt(value, 10);
           return { ...u, [field]: isNaN(parsed) ? 0 : parsed };
         }
-        return { ...u, [field]: value };
+        
+        let newUnit = { ...u, [field]: value };
+        
+        if (field === 'supervisorId') {
+          const cleanId = value.toString().trim();
+          const p = POLICIAIS.find(x => x.rg.toString().trim() === cleanId);
+          if (p) {
+            if (isAllowedSSA(p.postoGrad)) {
+              newUnit.supervisor = `${p.postoGrad} ${p.nomeGuerra}`;
+            } else {
+              showToast(`O policial ${p.nomeGuerra} (${p.postoGrad}) não pode ser SSA. Postos permitidos: ASP OF PM, TEN ou SGT.`, 'error');
+              newUnit.supervisor = '';
+            }
+          } else if (cleanId === '') {
+            newUnit.supervisor = '';
+          }
+        }
+        
+        return newUnit;
       }
       return u;
     }));
@@ -1148,7 +1210,7 @@ function App() {
                 type="text"
                 placeholder="Ex: 20805"
                 value={header.cpoId}
-                onChange={(e) => setHeader(prev => ({ ...prev, cpoId: e.target.value }))}
+                onChange={(e) => handleCpoIdChange(e.target.value)}
                 className="glass-input px-3 py-2 text-sm rounded-lg placeholder-slate-400"
               />
             </div>
