@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mapa-da-forca-v1';
+const CACHE_NAME = 'mapa-da-forca-v2';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -15,7 +15,17 @@ const ASSETS_TO_CACHE = [
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS_TO_CACHE);
+      // Add a cache-busting query parameter so it skips HTTP cache
+      const requests = ASSETS_TO_CACHE.map(url => new Request(url + '?v=' + new Date().getTime(), { cache: 'reload' }));
+      
+      return Promise.all(
+        requests.map(req => fetch(req).then(response => {
+          if (!response.ok) throw new Error('Fetch failed: ' + req.url);
+          // Store it in cache under the ORIGINAL url (without the query string)
+          const originalUrl = req.url.split('?')[0];
+          return cache.put(originalUrl, response);
+        }))
+      );
     }).then(() => self.skipWaiting())
   );
 });
