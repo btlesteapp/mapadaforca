@@ -25,7 +25,8 @@ import {
   ClipboardList,
   IdCard,
   CarFrontIcon,
-  Turntable
+  Turntable,
+  Eye
 } from 'lucide-react';
 import './App.css';
 import { POLICIAIS } from './data/policiais.js';
@@ -263,6 +264,12 @@ function App() {
     return initial;
   });
 
+  // OP. Visibilidade State
+  const [opVisibilidade, setOpVisibilidade] = useState(() => {
+    const saved = localStorage.getItem('mf_op_visibilidade');
+    return saved ? { vtr: 0, pmVtr: 0, pog: 0, ...JSON.parse(saved) } : { vtr: 0, pmVtr: 0, pog: 0 };
+  });
+
   // PWA customized logo URL
   const [logoUrl, setLogoUrl] = useState(() => {
     return localStorage.getItem('mf_logo') || 'logo.png';
@@ -281,6 +288,10 @@ function App() {
   useEffect(() => {
     localStorage.setItem('mf_units', JSON.stringify(units));
   }, [units]);
+
+  useEffect(() => {
+    localStorage.setItem('mf_op_visibilidade', JSON.stringify(opVisibilidade));
+  }, [opVisibilidade]);
 
   useEffect(() => {
     localStorage.setItem('mf_faltas', JSON.stringify(faltas));
@@ -488,6 +499,7 @@ function App() {
       vtrSa: ''
     });
     setUnits(INITIAL_UNITS);
+    setOpVisibilidade({ vtr: 0, pmVtr: 0, pog: 0 });
     setFaltas(['S/A']);
     setAtrasos(['S/A']);
     setDispensas(['S/A']);
@@ -550,11 +562,11 @@ function App() {
 
   const totalVtrOrd = units.reduce((acc, c) => acc + c.vtrOrd, 0);
   const totalVtrSeg = units.reduce((acc, c) => acc + c.vtrSeg, 0);
-  const grandTotalViaturas = totalVtrOrd + totalVtrSeg;
+  const grandTotalViaturas = totalVtrOrd + totalVtrSeg + (Number(opVisibilidade?.vtr) || 0);
 
   const totalPmOrd = units.reduce((acc, c) => acc + c.pmOrd, 0);
   const totalPmSeg = units.reduce((acc, c) => acc + c.pmSeg, 0);
-  const grandTotalEfetivo = totalPmOrd + totalPmSeg;
+  const grandTotalEfetivo = totalPmOrd + totalPmSeg + (Number(opVisibilidade?.pmVtr) || 0) + (Number(opVisibilidade?.pog) || 0);
 
   const formatIncidentText = (arr) => {
     const filtered = arr.map(i => i.trim()).filter(i => i !== '' && i.toUpperCase() !== 'S/A');
@@ -602,7 +614,7 @@ function App() {
         lines.push(`${u.name}: ${paddedTotal}`);
       }
     });
-
+    lines.push(`OP. VISIBILIDADE: ${formatNum(opVisibilidade.vtr)}`);
     lines.push('_________________________');
     lines.push('');
     lines.push(`*TOTAL DE VIATURAS: ${grandTotalViaturas}*`);
@@ -620,7 +632,8 @@ function App() {
         lines.push(`${u.name}: ${paddedTotal}`);
       }
     });
-
+    lines.push(`OP. VISIBILIDADE PM VTR: ${formatNum(opVisibilidade.pmVtr)}`);
+    lines.push(`OP. VISIBILIDADE POG: ${formatNum(opVisibilidade.pog)}`);
     lines.push('_________________________');
     lines.push('');
     lines.push(`*TOTAL DE PM's: ${grandTotalEfetivo}*`);
@@ -792,12 +805,41 @@ function App() {
         currentY += 6.5;
       });
 
+      // OP. VISIBILIDADE ROW (Directly before TOTAL GERAL)
+      doc.setFillColor(245, 248, 255);
+      doc.rect(12, currentY, 186, 6.5, 'F');
+      doc.setDrawColor(...borderGray);
+      doc.line(12, currentY + 6.5, 198, currentY + 6.5);
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7.5);
+      doc.setTextColor(27, 38, 79);
+      doc.text("OP. VISIBILIDADE", colX.unidade + 2, currentY + 4.5);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(...textDark);
+      doc.text("-", colX.supervisor + 2, currentY + 4.5);
+      doc.text("-", colX.id + 2, currentY + 4.5);
+
+      doc.text("-", colX.vtrOrd + 8.5, currentY + 4.5, { align: "center" });
+      doc.text("-", colX.vtrSeg + 8.5, currentY + 4.5, { align: "center" });
+      doc.setFont("helvetica", "bold");
+      doc.text(formatNum(opVisibilidade.vtr), colX.vtrTotal + 8.5, currentY + 4.5, { align: "center" });
+
+      doc.setFont("helvetica", "normal");
+      doc.text(formatNum(opVisibilidade.pmVtr), colX.pmOrd + 8.5, currentY + 4.5, { align: "center" });
+      doc.text(formatNum(opVisibilidade.pog), colX.pmSeg + 8.5, currentY + 4.5, { align: "center" });
+      doc.setFont("helvetica", "bold");
+      doc.text(formatNum((Number(opVisibilidade.pmVtr) || 0) + (Number(opVisibilidade.pog) || 0)), colX.pmTotal + 10, currentY + 4.5, { align: "center" });
+
+      currentY += 6.5;
+
       // Total Geral Row inside PDF Table
       doc.setFillColor(230, 235, 245);
       doc.rect(12, currentY, 186, 7.5, 'F');
 
       doc.setFont("helvetica", "bold");
       doc.setFontSize(8);
+      doc.setTextColor(...textDark);
       doc.text("TOTAL GERAL", colX.unidade + 2, currentY + 5);
 
       doc.text(formatNum(totalVtrOrd), colX.vtrOrd + 8.5, currentY + 5, { align: "center" });
@@ -1478,8 +1520,45 @@ function App() {
                       );
                     })}
 
+                    {/* OP. VISIBILIDADE ROW */}
+                    <tr className="bg-blue-50/50 border-t border-blue-200 font-bold text-slate-900">
+                      <td className="py-2.5 px-4 text-sm font-extrabold uppercase text-blue-900 text-left border-r border-slate-100" colSpan={3}>
+                        <div className="flex items-center gap-2">
+                          <Eye className="w-4 h-4 text-blue-600" />
+                          <span>OPERAÇÃO VISIBILIDADE</span>
+                        </div>
+                      </td>
+                      <td className="py-2.5 px-4 text-center border-r border-slate-100" colSpan={2}>
+                        <div className="flex items-center justify-center gap-2">
+                          <span className="text-xs font-bold text-slate-700 uppercase">VTR:</span>
+                          <NumericCell
+                            value={opVisibilidade.vtr}
+                            onChange={(val) => setOpVisibilidade(prev => ({ ...prev, vtr: val }))}
+                          />
+                        </div>
+                      </td>
+                      <td className="py-2.5 px-4 text-center border-r border-slate-100" colSpan={2}>
+                        <div className="flex items-center justify-center gap-2">
+                          <span className="text-xs font-bold text-slate-700 uppercase">PM VTR:</span>
+                          <NumericCell
+                            value={opVisibilidade.pmVtr}
+                            onChange={(val) => setOpVisibilidade(prev => ({ ...prev, pmVtr: val }))}
+                          />
+                        </div>
+                      </td>
+                      <td className="py-2.5 px-4 text-center" colSpan={2}>
+                        <div className="flex items-center justify-center gap-2">
+                          <span className="text-xs font-bold text-slate-700 uppercase">POG:</span>
+                          <NumericCell
+                            value={opVisibilidade.pog}
+                            onChange={(val) => setOpVisibilidade(prev => ({ ...prev, pog: val }))}
+                          />
+                        </div>
+                      </td>
+                    </tr>
+
                     {/* TOTAL GERAL ROW */}
-                    <tr className="bg-slate-100 border-t border-slate-300 font-black text-slate-900">
+                    <tr className="bg-slate-100 border-t-2 border-slate-300 font-black text-slate-900">
                       <td className="py-3 px-4 text-sm" colSpan={3}>TOTAL GERAL</td>
                       <td className="py-3 px-4 text-center text-sm">{formatNum(totalVtrOrd)}</td>
                       <td className="py-3 px-4 text-center text-sm">{formatNum(totalVtrSeg)}</td>
@@ -1577,6 +1656,60 @@ function App() {
                     </div>
                   );
                 })}
+
+                {/* OP. VISIBILIDADE MOBILE CARD */}
+                <div className="p-4 rounded-xl border border-blue-200 bg-blue-50/40 flex flex-col gap-3">
+                  <div className="flex items-center justify-between pb-2 border-b border-blue-100">
+                    <span className="font-extrabold text-blue-900 text-sm flex items-center gap-1.5 uppercase">
+                      <Eye className="w-4 h-4 text-blue-600" />
+                      OP. VISIBILIDADE
+                    </span>
+                    <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">
+                      Operação Especial
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="p-2.5 bg-white border border-slate-200 rounded-lg flex flex-col items-center gap-1 shadow-sm">
+                      <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">VTR</span>
+                      <NumericCell
+                        value={opVisibilidade.vtr}
+                        onChange={(val) => setOpVisibilidade(prev => ({ ...prev, vtr: val }))}
+                      />
+                    </div>
+                    <div className="p-2.5 bg-white border border-slate-200 rounded-lg flex flex-col items-center gap-1 shadow-sm">
+                      <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">PM VTR</span>
+                      <NumericCell
+                        value={opVisibilidade.pmVtr}
+                        onChange={(val) => setOpVisibilidade(prev => ({ ...prev, pmVtr: val }))}
+                      />
+                    </div>
+                    <div className="p-2.5 bg-white border border-slate-200 rounded-lg flex flex-col items-center gap-1 shadow-sm">
+                      <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">POG</span>
+                      <NumericCell
+                        value={opVisibilidade.pog}
+                        onChange={(val) => setOpVisibilidade(prev => ({ ...prev, pog: val }))}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* TOTAL GERAL MOBILE CARD */}
+                <div className="p-4 rounded-xl border-2 border-slate-300 bg-slate-100 flex flex-col gap-3">
+                  <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                    <span className="font-black text-slate-900 text-sm uppercase">TOTAL GERAL</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-3 bg-white border border-slate-200 rounded-lg flex flex-col items-center">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase">Viaturas</span>
+                      <span className="text-xl font-black text-amber-600 mt-1">{formatNum(grandTotalViaturas)}</span>
+                    </div>
+                    <div className="p-3 bg-white border border-slate-200 rounded-lg flex flex-col items-center">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase">Efetivo</span>
+                      <span className="text-xl font-black text-amber-600 mt-1">{formatNum(grandTotalEfetivo)}</span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </section>
 
