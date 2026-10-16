@@ -216,6 +216,15 @@ const isAllowedSSA = (rank) => {
   return allowed.includes(r);
 };
 
+// Normalizador de URL para compatibilidade com GitHub Pages e caminhos locais
+const normalizeBgUrl = (url) => {
+  if (!url) return './bg-btl-leste.jpg';
+  if (url.startsWith('data:') || url.startsWith('http://') || url.startsWith('https://')) return url;
+  if (url.startsWith('/')) return '.' + url;
+  if (!url.startsWith('./')) return './' + url;
+  return url;
+};
+
 
 function App() {
   // Navigation Tab State
@@ -292,10 +301,10 @@ function App() {
   });
   const [bgUrl, setBgUrl] = useState(() => {
     const saved = localStorage.getItem('mf_bg_url');
-    if (!saved || saved === '/bg-tactical.jpg') {
-      return '/bg-btl-leste.jpg';
+    if (!saved || saved === '/bg-tactical.jpg' || saved === './bg-tactical.jpg') {
+      return './bg-btl-leste.jpg';
     }
-    return saved;
+    return normalizeBgUrl(saved);
   });
   const [bgOverlayOpacity, setBgOverlayOpacity] = useState(() => {
     const saved = localStorage.getItem('mf_bg_opacity');
@@ -427,9 +436,9 @@ function App() {
   };
 
   const resetBg = () => {
-    setBgUrl('/bg-btl-leste.jpg');
+    setBgUrl('./bg-btl-leste.jpg');
     setBgEnabled(true);
-    setBgOverlayOpacity(75);
+    setBgOverlayOpacity(50);
     showToast('Plano de fundo redefinido para o Batalhão Leste.');
   };
 
@@ -1248,7 +1257,7 @@ function App() {
         <>
           <div
             className="fixed inset-0 z-0 bg-cover bg-center bg-no-repeat pointer-events-none transition-all duration-700"
-            style={{ backgroundImage: `url(${bgUrl})` }}
+            style={{ backgroundImage: `url(${normalizeBgUrl(bgUrl)})` }}
           />
           <div
             className="fixed inset-0 z-0 pointer-events-none transition-all duration-300"
@@ -2214,28 +2223,28 @@ function App() {
                   <div className="grid grid-cols-3 gap-2.5">
                     <button
                       type="button"
-                      onClick={() => { setBgUrl('/bg-btl-leste.jpg'); setBgEnabled(true); }}
-                      className={`p-2.5 rounded-xl border text-xs font-medium text-center flex flex-col items-center gap-1.5 transition-all cursor-pointer ${bgUrl === '/bg-btl-leste.jpg' && bgEnabled ? 'border-blue-600 bg-blue-50/50 text-blue-700 font-bold shadow-sm' : 'border-slate-200 hover:border-slate-300 text-slate-700'}`}
+                      onClick={() => { setBgUrl('./bg-btl-leste.jpg'); setBgEnabled(true); }}
+                      className={`p-2.5 rounded-xl border text-xs font-medium text-center flex flex-col items-center gap-1.5 transition-all cursor-pointer ${normalizeBgUrl(bgUrl) === './bg-btl-leste.jpg' && bgEnabled ? 'border-blue-600 bg-blue-50/50 text-blue-700 font-bold shadow-sm' : 'border-slate-200 hover:border-slate-300 text-slate-700'}`}
                     >
-                      <div className="w-full h-12 rounded-lg bg-cover bg-center border border-slate-200" style={{ backgroundImage: `url('/bg-btl-leste.jpg')` }} />
+                      <div className="w-full h-12 rounded-lg bg-cover bg-center border border-slate-200" style={{ backgroundImage: `url('./bg-btl-leste.jpg')` }} />
                       <span>BTL Leste Oficial</span>
                     </button>
 
                     <button
                       type="button"
-                      onClick={() => { setBgUrl('/bg-tactical.jpg'); setBgEnabled(true); }}
-                      className={`p-2.5 rounded-xl border text-xs font-medium text-center flex flex-col items-center gap-1.5 transition-all cursor-pointer ${bgUrl === '/bg-tactical.jpg' && bgEnabled ? 'border-blue-600 bg-blue-50/50 text-blue-700 font-bold shadow-sm' : 'border-slate-200 hover:border-slate-300 text-slate-700'}`}
+                      onClick={() => { setBgUrl('./bg-tactical.jpg'); setBgEnabled(true); }}
+                      className={`p-2.5 rounded-xl border text-xs font-medium text-center flex flex-col items-center gap-1.5 transition-all cursor-pointer ${normalizeBgUrl(bgUrl) === './bg-tactical.jpg' && bgEnabled ? 'border-blue-600 bg-blue-50/50 text-blue-700 font-bold shadow-sm' : 'border-slate-200 hover:border-slate-300 text-slate-700'}`}
                     >
-                      <div className="w-full h-12 rounded-lg bg-cover bg-center border border-slate-200" style={{ backgroundImage: `url('/bg-tactical.jpg')` }} />
+                      <div className="w-full h-12 rounded-lg bg-cover bg-center border border-slate-200" style={{ backgroundImage: `url('./bg-tactical.jpg')` }} />
                       <span>Centro Tático</span>
                     </button>
 
                     <button
                       type="button"
-                      onClick={() => { setBgUrl('/logos/cpa-leste.png'); setBgEnabled(true); }}
-                      className={`p-2.5 rounded-xl border text-xs font-medium text-center flex flex-col items-center gap-1.5 transition-all cursor-pointer ${bgUrl === '/logos/cpa-leste.png' && bgEnabled ? 'border-blue-600 bg-blue-50/50 text-blue-700 font-bold shadow-sm' : 'border-slate-200 hover:border-slate-300 text-slate-700'}`}
+                      onClick={() => { setBgUrl('./logos/cpa-leste.png'); setBgEnabled(true); }}
+                      className={`p-2.5 rounded-xl border text-xs font-medium text-center flex flex-col items-center gap-1.5 transition-all cursor-pointer ${normalizeBgUrl(bgUrl) === './logos/cpa-leste.png' && bgEnabled ? 'border-blue-600 bg-blue-50/50 text-blue-700 font-bold shadow-sm' : 'border-slate-200 hover:border-slate-300 text-slate-700'}`}
                     >
-                      <div className="w-full h-12 rounded-lg bg-contain bg-center bg-no-repeat bg-slate-100 border border-slate-200 p-1" style={{ backgroundImage: `url('/logos/cpa-leste.png')` }} />
+                      <div className="w-full h-12 rounded-lg bg-contain bg-center bg-no-repeat bg-slate-100 border border-slate-200 p-1" style={{ backgroundImage: `url('./logos/cpa-leste.png')` }} />
                       <span>Brasão CPA</span>
                     </button>
                   </div>

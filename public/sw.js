@@ -1,14 +1,16 @@
-const CACHE_NAME = 'mapa-da-forca-v2';
+const CACHE_NAME = 'mapa-da-forca-v3';
 const ASSETS_TO_CACHE = [
-  '/',
-  '/index.html',
-  '/manifest.json',
-  '/logo.png',
-  '/assets/index.js',
-  '/assets/index.css',
-  '/assets/purify.es.js',
-  '/assets/index.es.js',
-  '/assets/html2canvas.js'
+  './',
+  './index.html',
+  './manifest.json',
+  './logo.png',
+  './bg-btl-leste.jpg',
+  './bg-tactical.jpg',
+  './assets/index.js',
+  './assets/index.css',
+  './assets/purify.es.js',
+  './assets/index.es.js',
+  './assets/html2canvas.js'
 ];
 
 // Install Event - cache core static assets
