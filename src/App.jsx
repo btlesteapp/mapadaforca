@@ -26,7 +26,10 @@ import {
   IdCard,
   CarFrontIcon,
   Turntable,
-  Eye
+  Eye,
+  Image as ImageIcon,
+  SlidersHorizontal,
+  X
 } from 'lucide-react';
 import './App.css';
 import { POLICIAIS } from './data/policiais.js';
@@ -206,7 +209,9 @@ const isAllowedSSA = (rank) => {
     'ST PM',
     '1º SGT QPPM',
     '2º SGT QPPM',
-    '3º SGT QPPM'
+    '3º SGT QPPM',
+    'CB QPPM',
+    'CB PM'
   ];
   return allowed.includes(r);
 };
@@ -279,6 +284,37 @@ function App() {
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [showOccClearConfirm, setShowOccClearConfirm] = useState(false);
   const fileInputRef = useRef(null);
+
+  // Background Image State
+  const [bgEnabled, setBgEnabled] = useState(() => {
+    const saved = localStorage.getItem('mf_bg_enabled');
+    return saved !== null ? JSON.parse(saved) : true;
+  });
+  const [bgUrl, setBgUrl] = useState(() => {
+    const saved = localStorage.getItem('mf_bg_url');
+    if (!saved || saved === '/bg-tactical.jpg') {
+      return '/bg-btl-leste.jpg';
+    }
+    return saved;
+  });
+  const [bgOverlayOpacity, setBgOverlayOpacity] = useState(() => {
+    const saved = localStorage.getItem('mf_bg_opacity');
+    return saved ? Number(saved) : 50
+  });
+  const [showBgModal, setShowBgModal] = useState(false);
+  const bgFileInputRef = useRef(null);
+
+  useEffect(() => {
+    localStorage.setItem('mf_bg_enabled', JSON.stringify(bgEnabled));
+  }, [bgEnabled]);
+
+  useEffect(() => {
+    localStorage.setItem('mf_bg_url', bgUrl);
+  }, [bgUrl]);
+
+  useEffect(() => {
+    localStorage.setItem('mf_bg_opacity', bgOverlayOpacity.toString());
+  }, [bgOverlayOpacity]);
 
   // Sync states to local storage
   useEffect(() => {
@@ -372,6 +408,31 @@ function App() {
     showToast('Logo redefinida para a padrão.');
   };
 
+  const handleBgUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        showToast('A imagem deve ter menos de 5MB.', 'error');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64Data = reader.result;
+        setBgUrl(base64Data);
+        setBgEnabled(true);
+        showToast('Plano de fundo personalizado aplicado com sucesso!');
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const resetBg = () => {
+    setBgUrl('/bg-btl-leste.jpg');
+    setBgEnabled(true);
+    setBgOverlayOpacity(75);
+    showToast('Plano de fundo redefinido para o Batalhão Leste.');
+  };
+
   const handleCpoIdChange = (idValue) => {
     setHeader(prev => {
       const newHeader = { ...prev, cpoId: idValue };
@@ -412,7 +473,7 @@ function App() {
             if (isAllowedSSA(p.postoGrad)) {
               newUnit.supervisor = `${p.postoGrad} ${p.nomeGuerra}`;
             } else {
-              showToast(`O policial ${p.nomeGuerra} (${p.postoGrad}) não pode ser SSA. Postos permitidos: ASP OF PM, TEN ou SGT.`, 'error');
+              showToast(`O policial ${p.nomeGuerra} (${p.postoGrad}) não pode ser SSA. Postos permitidos: ASP OF PM, TEN, SGT ou CB.`, 'error');
               newUnit.supervisor = '';
             }
           } else if (cleanId === '') {
@@ -1181,891 +1242,1075 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen pb-12 bg-slate-50 text-slate-900 flex flex-col font-sans">
-      {/* Toast de Notificação */}
-      {toast.visible && (
-        <div className="fixed top-6 right-6 z-50 flex items-center gap-3 px-4 py-3 rounded-lg shadow-2xl border border-blue-500/20 bg-white animate-bounce glow-accent">
-          <CheckCircle2 className="w-5 h-5 text-blue-600" />
-          <span className="text-sm font-semibold text-slate-800">{toast.message}</span>
-        </div>
+    <div className="relative min-h-screen pb-12 text-slate-900 flex flex-col font-sans transition-colors">
+      {/* Background Image Layer */}
+      {bgEnabled && (
+        <>
+          <div
+            className="fixed inset-0 z-0 bg-cover bg-center bg-no-repeat pointer-events-none transition-all duration-700"
+            style={{ backgroundImage: `url(${bgUrl})` }}
+          />
+          <div
+            className="fixed inset-0 z-0 pointer-events-none transition-all duration-300"
+            style={{
+              backgroundColor: `rgba(248, 250, 252, ${bgOverlayOpacity / 100})`,
+              backdropFilter: 'blur(1px)'
+            }}
+          />
+        </>
+      )}
+      {!bgEnabled && (
+        <div className="fixed inset-0 z-0 bg-slate-50 pointer-events-none" />
       )}
 
-      {/* Main Header Area - Dark Navy Banner */}
-      <header className="relative w-full py-8 bg-[#080c18] border-b border-slate-800 overflow-hidden text-white">
-        <div className="absolute inset-0 bg-radial-at-t from-[#1b264f]/30 via-transparent to-transparent pointer-events-none" />
-        <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center gap-6 justify-between">
-          <div className="flex items-center gap-5">
-            {/* Customizable Logo */}
-            <div className="relative group p-1 bg-white/10 rounded-xl border border-white/20 shadow-inner overflow-hidden">
-              <img src={logoUrl} className="w-16 h-16 object-contain rounded" alt="CPA Leste Logo" />
-              <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1">
-                <button
-                  onClick={() => fileInputRef.current.click()}
-                  className="p-1 bg-blue-600 rounded text-white hover:bg-blue-700 cursor-pointer"
-                  title="Upload Logo"
-                >
-                  <Upload className="w-3.5 h-3.5" />
-                </button>
-                {logoUrl !== 'logo.png' && (
+      {/* Main Content wrapper */}
+      <div className="relative z-10 flex flex-col flex-grow">
+        {/* Toast de Notificação */}
+        {toast.visible && (
+          <div className="fixed top-6 right-6 z-50 flex items-center gap-3 px-4 py-3 rounded-lg shadow-2xl border border-blue-500/20 bg-white animate-bounce glow-accent">
+            <CheckCircle2 className="w-5 h-5 text-blue-600" />
+            <span className="text-sm font-semibold text-slate-800">{toast.message}</span>
+          </div>
+        )}
+
+        {/* Main Header Area - Dark Navy Banner */}
+        <header className="relative w-full py-8 bg-[#080c18] border-b border-slate-800 overflow-hidden text-white">
+          <div className="absolute inset-0 bg-radial-at-t from-[#1b264f]/30 via-transparent to-transparent pointer-events-none" />
+          <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center gap-6 justify-between">
+            <div className="flex items-center gap-5">
+              {/* Customizable Logo */}
+              <div className="relative group p-1 bg-white/10 rounded-xl border border-white/20 shadow-inner overflow-hidden">
+                <img src={logoUrl} className="w-16 h-16 object-contain rounded" alt="CPA Leste Logo" />
+                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1">
                   <button
-                    onClick={resetLogo}
-                    className="p-1 bg-rose-600 rounded text-white hover:bg-rose-700 cursor-pointer"
-                    title="Redefinir Logo"
+                    onClick={() => fileInputRef.current.click()}
+                    className="p-1 bg-blue-600 rounded text-white hover:bg-blue-700 cursor-pointer"
+                    title="Upload Logo"
                   >
-                    <RefreshCw className="w-3.5 h-3.5" />
+                    <Upload className="w-3.5 h-3.5" />
                   </button>
-                )}
-              </div>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleLogoUpload}
-                className="hidden"
-              />
-            </div>
-
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest bg-blue-500/20 border border-blue-500/50 text-blue-400 rounded">PMAM</span>
-                <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest bg-amber-500/20 border border-amber-500/50 text-amber-400 rounded">CPA LESTE</span>
-              </div>
-              <h1 className="text-2x1 md:text-3xl font-extrabold text-white tracking-tight mt-1">MONTAGEM DO MAPA DA FORÇA</h1>
-              <p className="text-xs md:text-sm text-slate-400 font-medium">Montagem do Mapa da Força do Batalhão Leste</p>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Navigation Tabs - Switch between Mapa and Resumo de Ocorrencias */}
-      <nav className="max-w-7xl mx-auto px-6 mt-6 flex border-b border-slate-200 w-full">
-        <button
-          onClick={() => setActiveTab('mapa')}
-          className={`px-6 py-3 font-bold text-sm flex items-center gap-2 border-b-2 transition-all 
-            cursor-pointer ${activeTab === 'mapa' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
-        >
-          <Shield className="w-4 h-4" />
-          Mapa da Força
-        </button>
-        <button
-          onClick={() => setActiveTab('ocorrencias')}
-          className={`px-6 py-3 font-bold text-sm flex items-center gap-2 border-b-2 transition-all cursor-pointer 
-            ${activeTab === 'ocorrencias' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
-        >
-          <FileText className="w-4 h-4" />
-          Resumo de Ocorrências
-        </button>
-      </nav>
-
-      {/* Shared Operational Header (Visible in both tabs) */}
-      <div className="max-w-7xl mx-auto px-4 md:px-6 mt-6 w-full">
-        <section className="glass-panel p-6 rounded-2xl glow-accent">
-          <div className="flex items-center gap-2 border-b border-slate-200 pb-3 mb-6">
-            <FileCheck className="w-5 h-5 text-blue-600" />
-            <h2 className="text-lg font-bold text-slate-800 tracking-wide uppercase">Dados do SA(CPO) LESTE</h2>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-            {/* Date */}
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-                <Calendar className="w-3.5 h-3.5 text-blue-600" /> Data
-              </label>
-              <input
-                type="date"
-                value={header.data}
-                onChange={(e) => setHeader(prev => ({ ...prev, data: e.target.value }))}
-                className="glass-input px-3 py-2 text-sm rounded-lg"
-              />
-            </div>
-
-            {/* Time */}
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-                <Clock className="w-3.5 h-3.5 text-blue-600" /> Hora do Registro
-              </label>
-              <input
-                type="time"
-                value={header.hora}
-                onChange={(e) => setHeader(prev => ({ ...prev, hora: e.target.value }))}
-                className="glass-input px-3 py-2 text-sm rounded-lg"
-              />
-            </div>
-
-            {/* Shift */}
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-                <Turntable className="w-3.5 h-3.5 text-blue-600" /> Turno
-              </label>
-              <select
-                value={header.turno}
-                onChange={(e) => setHeader(prev => ({ ...prev, turno: e.target.value }))}
-                className="glass-input px-3 py-2 text-sm rounded-lg cursor-pointer"
-              >
-                <option value="1º TURNO">1º TURNO</option>
-                <option value="2º TURNO">2º TURNO</option>
-              </select>
-            </div>
-
-            {/* Telephone */}
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-                <Phone className="w-3.5 h-3.5 text-blue-600" /> Telefone de Plantão
-              </label>
-              <input
-                type="text"
-                value={header.telefone || "(92) 98842-2842"}
-                readOnly
-                className="glass-input px-3 py-2 text-sm rounded-lg bg-slate-100 text-slate-600 font-bold cursor-not-allowed border-slate-200"
-              />
-            </div>
-
-            {/* CPO ID */}
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-                <IdCard className="w-3.5 h-3.5 text-blue-600" /> CI
-              </label>
-              <input
-                type="text"
-                placeholder="Ex: 20805"
-                value={header.cpoId}
-                onChange={(e) => handleCpoIdChange(e.target.value.replace(/\D/g, '').slice(0, 5))}
-                onBlur={handleCpoIdBlur}
-                maxLength={5}
-                className="glass-input px-3 py-2 text-sm rounded-lg placeholder-slate-400"
-              />
-            </div>
-
-            {/* CPO / SA Name */}
-            <div className="flex flex-col gap-1.5 sm:col-span-2 lg:col-span-2">
-              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-                <User className="w-3.5 h-3.5 text-blue-600" /> Supervisor de ÁREA (SA Leste)
-              </label>
-              <input
-                type="text"
-                placeholder="Nome de Guerra (Autopreenchido)"
-                value={header.cpoNome}
-                readOnly
-                className="glass-input px-3 py-2 text-sm rounded-lg bg-slate-100 text-slate-600 font-bold border-slate-200 outline-none cursor-not-allowed"
-              />
-            </div>
-
-            {/* VTR SA */}
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-                <CarFrontIcon className="w-3.5 h-3.5 text-blue-600" /> VTR SA
-              </label>
-              <input
-                type="text"
-                placeholder="Ex: 25-1006"
-                value={header.vtrSa || ''}
-                onChange={(e) => setHeader(prev => ({ ...prev, vtrSa: e.target.value }))}
-                className="glass-input px-3 py-2 text-sm rounded-lg placeholder-slate-400"
-              />
-            </div>
-          </div>
-        </section>
-      </div>
-
-      {/* Main Content Area - Toggle tabs */}
-      <main className="max-w-7xl mx-auto px-4 md:px-6 mt-6 flex-grow w-full flex flex-col gap-8">
-
-        {/* ========================================================================= */}
-        {/* SCREEN 1: MAPA DA FORÇA                                                   */}
-        {/* ========================================================================= */}
-        {activeTab === 'mapa' && (
-          <>
-            {/* Running KPIs Totals */}
-            <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              <div className="glass-panel p-5 rounded-2xl flex items-center justify-between border-l-4 border-l-amber-600 shadow-sm">
-                <div>
-                  <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block">Viaturas Montadas</span>
-                  <span className="text-3xl font-black text-slate-800 mt-1 block">{formatNum(grandTotalViaturas)}</span>
+                  {logoUrl !== 'logo.png' && (
+                    <button
+                      onClick={resetLogo}
+                      className="p-1 bg-rose-600 rounded text-white hover:bg-rose-700 cursor-pointer"
+                      title="Redefinir Logo"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
-                <div className="p-3 rounded-lg bg-amber-500/10 text-amber-700">
-                  <CarFront className="w-6 h-6" />
-                </div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleLogoUpload}
+                  className="hidden"
+                />
               </div>
 
-              <div className="glass-panel p-5 rounded-2xl flex items-center justify-between border-l-4 border-l-blue-600 shadow-sm">
-                <div>
-                  <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block">Efetivo de Serviço</span>
-                  <span className="text-3xl font-black text-slate-800 mt-1 block">{formatNum(grandTotalEfetivo)} PMs</span>
-                </div>
-                <div className="p-3 rounded-lg bg-blue-500/10 text-blue-700">
-                  <Users className="w-6 h-6" />
-                </div>
-              </div>
-
-              <div className="glass-panel p-5 rounded-2xl flex items-center justify-between border-l-4 border-l-slate-500 shadow-sm">
-                <div>
-                  <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block">Subáreas Cobertas</span>
-                  <span className="text-3xl font-black text-slate-800 mt-1 block">08 Unidades</span>
-                </div>
-                <div className="p-3 rounded-lg bg-slate-100 text-slate-505">
-                  <MapPin className="w-6 h-6" />
-                </div>
-              </div>
-
-              <div className="glass-panel p-5 rounded-2xl flex items-center justify-between border-l-4 border-l-emerald-500 shadow-sm">
-                <div>
-                  <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block">Conexão Local</span>
-                  <span className="text-lg font-bold text-emerald-600 mt-1 block">Operação Offline OK</span>
-                </div>
-                <div className="p-3 rounded-lg bg-emerald-500/10 text-emerald-600">
-                  <CheckCircle2 className="w-6 h-6" />
-                </div>
-              </div>
-            </section>
-
-            {/* Interactive Grid Table */}
-            <section className="glass-panel rounded-2xl overflow-hidden shadow-sm border border-slate-200">
-              <div className="p-6 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+              <div>
                 <div className="flex items-center gap-2">
-                  <ClipboardList className="w-5 h-5 text-blue-600" />
-                  <h2 className="text-lg font-bold text-slate-800 tracking-wide uppercase">MONTAGEM DO EFETIVO DO MAPA DA FORÇA - BATALHÃO LESTE</h2>
+                  <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest bg-blue-500/20 border border-blue-500/50 text-blue-400 rounded">PMAM</span>
+                  <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest bg-amber-500/20 border border-amber-500/50 text-amber-400 rounded">CPA LESTE</span>
                 </div>
-                <span className="text-xs font-medium text-slate-505 italic">Preenchimento de Efetivos e Viaturas</span>
+                <h1 className="text-2xl md:text-3xl font-extrabold text-white tracking-tight mt-1">MONTAGEM DO MAPA DA FORÇA</h1>
+                <p className="text-xs md:text-sm text-slate-400 font-medium">Montagem do Mapa da Força do Batalhão Leste</p>
+              </div>
+            </div>
+
+            {/* Right side controls: Plano de Fundo */}
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setShowBgModal(true)}
+                className="flex items-center gap-2 px-3.5 py-2 bg-white/10 hover:bg-white/20 border border-white/20 rounded-xl text-xs font-semibold text-white transition-all shadow-sm hover:shadow backdrop-blur cursor-pointer"
+                title="Personalizar Plano de Fundo"
+              >
+                <ImageIcon className="w-4 h-4 text-blue-400" />
+                <span>Plano de Fundo</span>
+                {bgEnabled && (
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                )}
+              </button>
+            </div>
+          </div>
+        </header>
+
+        {/* Navigation Tabs - Switch between Mapa and Resumo de Ocorrencias */}
+        <nav className="max-w-7xl mx-auto px-4 md:px-6 mt-6 flex items-center gap-3 w-full">
+          <button
+            onClick={() => setActiveTab('mapa')}
+            className={`px-5 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2.5 transition-all cursor-pointer shadow-sm ${
+              activeTab === 'mapa'
+                ? 'bg-blue-600 text-white shadow-blue-500/30 shadow-md ring-2 ring-blue-600/20 -translate-y-0.5'
+                : 'glass-panel text-slate-700 hover:text-blue-600 hover:bg-white hover:border-slate-300'
+            }`}
+          >
+            <Shield className={`w-4 h-4 ${activeTab === 'mapa' ? 'text-white' : 'text-blue-600'}`} />
+            <span>Mapa da Força</span>
+            {activeTab === 'mapa' && (
+              <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+            )}
+          </button>
+
+          <button
+            onClick={() => setActiveTab('ocorrencias')}
+            className={`px-5 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2.5 transition-all cursor-pointer shadow-sm ${
+              activeTab === 'ocorrencias'
+                ? 'bg-blue-600 text-white shadow-blue-500/30 shadow-md ring-2 ring-blue-600/20 -translate-y-0.5'
+                : 'glass-panel text-slate-700 hover:text-blue-600 hover:bg-white hover:border-slate-300'
+            }`}
+          >
+            <FileText className={`w-4 h-4 ${activeTab === 'ocorrencias' ? 'text-white' : 'text-blue-600'}`} />
+            <span>Resumo de Ocorrências</span>
+            {activeTab === 'ocorrencias' && (
+              <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+            )}
+          </button>
+        </nav>
+
+        {/* Shared Operational Header (Visible in both tabs) */}
+        <div className="max-w-7xl mx-auto px-4 md:px-6 mt-6 w-full">
+          <section className="glass-panel p-6 rounded-2xl glow-accent">
+            <div className="flex items-center gap-2 border-b border-slate-200 pb-3 mb-6">
+              <FileCheck className="w-5 h-5 text-blue-600" />
+              <h2 className="text-lg font-bold text-slate-800 tracking-wide uppercase">Dados do SA(CPO) LESTE</h2>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+              {/* Date */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5 text-blue-600" /> Data
+                </label>
+                <input
+                  type="date"
+                  value={header.data}
+                  onChange={(e) => setHeader(prev => ({ ...prev, data: e.target.value }))}
+                  className="glass-input px-3 py-2 text-sm rounded-lg"
+                />
               </div>
 
-              {/* tELA DE LISTAGEM  VTR E PMS */}
-              <div className="overflow-x-auto hidden md:block">
-                <table className="w-full text-center border-collapse">
-                  <thead>
-                    <tr className="bg-[#1b264f] text-white text-xs font-bold uppercase tracking-wider border-b border-slate-350">
-                      <th className="py-3.5 px-4 w-[14%] border-r border-white/5">UNIDADE</th>
-                      <th className="py-3.5 px-4 w-[24%] border-r border-white/5">SUPERVISOR (SSA)</th>
-                      <th className="py-3.5 px-4 w-[11%] border-r border-white/5">CI</th>
-                      <th className="py-3.5 px-4 w-[8%] text-center border-r border-white/5">VTR ORD</th>
-                      <th className="py-3.5 px-4 w-[8%] text-center border-r border-white/5">VTR SEG</th>
-                      <th className="py-3.5 px-4 w-[9%] text-center border-r border-white/5 font-bold">VTR Total</th>
-                      <th className="py-3.5 px-4 w-[8%] text-center border-r border-white/5">PM ORD</th>
-                      <th className="py-3.5 px-4 w-[8%] text-center border-r border-white/5">PM SEG</th>
-                      <th className="py-3.5 px-4 w-[10%] text-center font-bold">PM Total</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200 text-slate-700 text-sm">
-                    {units.map((unit, idx) => {
-                      const vtrTotal = unit.vtrOrd + unit.vtrSeg;
-                      const pmTotal = unit.pmOrd + unit.pmSeg;
+              {/* Time */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-blue-600" /> Hora do Registro
+                </label>
+                <input
+                  type="time"
+                  value={header.hora}
+                  onChange={(e) => setHeader(prev => ({ ...prev, hora: e.target.value }))}
+                  className="glass-input px-3 py-2 text-sm rounded-lg"
+                />
+              </div>
 
-                      return (
-                        <tr
-                          key={unit.id}
-                          className={`hover:bg-slate-50/70 transition-colors ${idx % 2 === 1 ? 'bg-slate-50/30' : 'bg-white'} ${unit.isHQ ? 'bg-blue-50/20 font-semibold' : ''}`}
-                        >
-                          <td className="py-2.5 px-4 font-bold text-slate-800 border-r border-slate-100">
-                            <div className="flex items-center justify-center gap-2">
-                              <img
-                                src={`./logos/${unit.id}.png`}
-                                alt={`Logo ${unit.name}`}
-                                className="w-6 h-6 object-contain"
-                                onError={(e) => {
-                                  e.target.onerror = null;
-                                  e.target.style.display = 'none';
-                                }}
+              {/* Shift */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                  <Turntable className="w-3.5 h-3.5 text-blue-600" /> Turno
+                </label>
+                <select
+                  value={header.turno}
+                  onChange={(e) => setHeader(prev => ({ ...prev, turno: e.target.value }))}
+                  className="glass-input px-3 py-2 text-sm rounded-lg cursor-pointer"
+                >
+                  <option value="1º TURNO">1º TURNO</option>
+                  <option value="2º TURNO">2º TURNO</option>
+                </select>
+              </div>
+
+              {/* Telephone */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                  <Phone className="w-3.5 h-3.5 text-blue-600" /> Telefone de Plantão
+                </label>
+                <input
+                  type="text"
+                  value={header.telefone || "(92) 98842-2842"}
+                  readOnly
+                  className="glass-input px-3 py-2 text-sm rounded-lg bg-slate-100 text-slate-600 font-bold cursor-not-allowed border-slate-200"
+                />
+              </div>
+
+              {/* CPO ID */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                  <IdCard className="w-3.5 h-3.5 text-blue-600" /> CI
+                </label>
+                <input
+                  type="text"
+                  placeholder="Ex: 20805"
+                  value={header.cpoId}
+                  onChange={(e) => handleCpoIdChange(e.target.value.replace(/\D/g, '').slice(0, 5))}
+                  onBlur={handleCpoIdBlur}
+                  maxLength={5}
+                  className="glass-input px-3 py-2 text-sm rounded-lg placeholder-slate-400"
+                />
+              </div>
+
+              {/* CPO / SA Name */}
+              <div className="flex flex-col gap-1.5 sm:col-span-2 lg:col-span-2">
+                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                  <User className="w-3.5 h-3.5 text-blue-600" /> Supervisor de ÁREA (SA Leste)
+                </label>
+                <input
+                  type="text"
+                  placeholder="Nome de Guerra (Autopreenchido)"
+                  value={header.cpoNome}
+                  readOnly
+                  className="glass-input px-3 py-2 text-sm rounded-lg bg-slate-100 text-slate-600 font-bold border-slate-200 outline-none cursor-not-allowed"
+                />
+              </div>
+
+              {/* VTR SA */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                  <CarFrontIcon className="w-3.5 h-3.5 text-blue-600" /> VTR SA
+                </label>
+                <input
+                  type="text"
+                  placeholder="Ex: 25-1006"
+                  value={header.vtrSa || ''}
+                  onChange={(e) => setHeader(prev => ({ ...prev, vtrSa: e.target.value }))}
+                  className="glass-input px-3 py-2 text-sm rounded-lg placeholder-slate-400"
+                />
+              </div>
+            </div>
+          </section>
+        </div>
+
+        {/* Main Content Area - Toggle tabs */}
+        <main className="max-w-7xl mx-auto px-4 md:px-6 mt-6 flex-grow w-full flex flex-col gap-8">
+
+          {/* ========================================================================= */}
+          {/* SCREEN 1: MAPA DA FORÇA                                                   */}
+          {/* ========================================================================= */}
+          {activeTab === 'mapa' && (
+            <>
+              {/* Running KPIs Totals */}
+              <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="glass-panel p-5 rounded-2xl flex items-center justify-between border-l-4 border-l-amber-600 shadow-sm">
+                  <div>
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block">Viaturas Montadas</span>
+                    <span className="text-3xl font-black text-slate-800 mt-1 block">{formatNum(grandTotalViaturas)}</span>
+                  </div>
+                  <div className="p-3 rounded-lg bg-amber-500/10 text-amber-700">
+                    <CarFront className="w-6 h-6" />
+                  </div>
+                </div>
+
+                <div className="glass-panel p-5 rounded-2xl flex items-center justify-between border-l-4 border-l-blue-600 shadow-sm">
+                  <div>
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block">Efetivo de Serviço</span>
+                    <span className="text-3xl font-black text-slate-800 mt-1 block">{formatNum(grandTotalEfetivo)} PMs</span>
+                  </div>
+                  <div className="p-3 rounded-lg bg-blue-500/10 text-blue-700">
+                    <Users className="w-6 h-6" />
+                  </div>
+                </div>
+
+                <div className="glass-panel p-5 rounded-2xl flex items-center justify-between border-l-4 border-l-slate-500 shadow-sm">
+                  <div>
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block">Subáreas Cobertas</span>
+                    <span className="text-3xl font-black text-slate-800 mt-1 block">08 Unidades</span>
+                  </div>
+                  <div className="p-3 rounded-lg bg-slate-100 text-slate-505">
+                    <MapPin className="w-6 h-6" />
+                  </div>
+                </div>
+
+                <div className="glass-panel p-5 rounded-2xl flex items-center justify-between border-l-4 border-l-emerald-500 shadow-sm">
+                  <div>
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block">Conexão Local</span>
+                    <span className="text-lg font-bold text-emerald-600 mt-1 block">Operação Offline OK</span>
+                  </div>
+                  <div className="p-3 rounded-lg bg-emerald-500/10 text-emerald-600">
+                    <CheckCircle2 className="w-6 h-6" />
+                  </div>
+                </div>
+              </section>
+
+              {/* Interactive Grid Table */}
+              <section className="glass-panel rounded-2xl overflow-hidden shadow-sm border border-slate-200">
+                <div className="p-6 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+                  <div className="flex items-center gap-2">
+                    <ClipboardList className="w-5 h-5 text-blue-600" />
+                    <h2 className="text-lg font-bold text-slate-800 tracking-wide uppercase">MONTAGEM DO EFETIVO DO MAPA DA FORÇA - BATALHÃO LESTE</h2>
+                  </div>
+                  <span className="text-xs font-medium text-slate-505 italic">Preenchimento de Efetivos e Viaturas</span>
+                </div>
+
+                {/* tELA DE LISTAGEM  VTR E PMS */}
+                <div className="overflow-x-auto hidden md:block">
+                  <table className="w-full text-center border-collapse">
+                    <thead>
+                      <tr className="bg-[#1b264f] text-white text-xs font-bold uppercase tracking-wider border-b border-slate-350">
+                        <th className="py-3.5 px-4 w-[14%] border-r border-white/5">UNIDADE</th>
+                        <th className="py-3.5 px-4 w-[24%] border-r border-white/5">SUPERVISOR (SSA)</th>
+                        <th className="py-3.5 px-4 w-[11%] border-r border-white/5">CI</th>
+                        <th className="py-3.5 px-4 w-[8%] text-center border-r border-white/5">VTR ORD</th>
+                        <th className="py-3.5 px-4 w-[8%] text-center border-r border-white/5">VTR SEG</th>
+                        <th className="py-3.5 px-4 w-[9%] text-center border-r border-white/5 font-bold">VTR Total</th>
+                        <th className="py-3.5 px-4 w-[8%] text-center border-r border-white/5">PM ORD</th>
+                        <th className="py-3.5 px-4 w-[8%] text-center border-r border-white/5">PM SEG</th>
+                        <th className="py-3.5 px-4 w-[10%] text-center font-bold">PM Total</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200 text-slate-700 text-sm">
+                      {units.map((unit, idx) => {
+                        const vtrTotal = unit.vtrOrd + unit.vtrSeg;
+                        const pmTotal = unit.pmOrd + unit.pmSeg;
+
+                        return (
+                          <tr
+                            key={unit.id}
+                            className={`hover:bg-slate-50/70 transition-colors ${idx % 2 === 1 ? 'bg-slate-50/30' : 'bg-white'} ${unit.isHQ ? 'bg-blue-50/20 font-semibold' : ''}`}
+                          >
+                            <td className="py-2.5 px-4 font-bold text-slate-800 border-r border-slate-100">
+                              <div className="flex items-center justify-center gap-2">
+                                <img
+                                  src={`./logos/${unit.id}.png`}
+                                  alt={`Logo ${unit.name}`}
+                                  className="w-6 h-6 object-contain"
+                                  onError={(e) => {
+                                    e.target.onerror = null;
+                                    e.target.style.display = 'none';
+                                  }}
+                                />
+                                <span>{unit.name}</span>
+                              </div>
+                            </td>
+
+                            <td className="py-2.5 px-4 border-r border-slate-100">
+                              <input
+                                type="text"
+                                placeholder={unit.isHQ ? "SA LESTE (CPO)" : "Nome de Guerra"}
+                                value={unit.isHQ ? (header.cpoNome ? `${header.cpoNome.toUpperCase()} (CPO)` : 'SA LESTE (CPO)') : unit.supervisor}
+                                onChange={(e) => handleUnitChange(unit.id, 'supervisor', e.target.value)}
+                                readOnly={unit.isHQ}
+                                className={`w-full px-3 py-1.5 text-xs rounded border outline-none transition-all ${unit.isHQ ? 'bg-slate-100 text-slate-500 font-bold border-slate-200 cursor-not-allowed' : 'border-slate-350 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white text-slate-800'}`}
                               />
-                              <span>{unit.name}</span>
-                            </div>
-                          </td>
+                            </td>
 
-                          <td className="py-2.5 px-4 border-r border-slate-100">
+                            <td className="py-2.5 px-4 border-r border-slate-100">
+                              <input
+                                type="text"
+                                placeholder="CI"
+                                value={unit.isHQ ? header.cpoId : unit.supervisorId}
+                                onChange={(e) => handleUnitChange(unit.id, 'supervisorId', e.target.value.replace(/\D/g, '').slice(0, 5))}
+                                onBlur={() => !unit.isHQ && handleUnitIdBlur(unit.id)}
+                                maxLength={5}
+                                disabled={unit.isHQ}
+                                className={`w-full px-3 py-1.5 text-xs rounded border text-center outline-none transition-all ${unit.isHQ ? 'bg-slate-100 text-slate-500 font-bold border-slate-200 cursor-not-allowed' : 'border-slate-350 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white text-slate-800'}`}
+                              />
+                            </td>
+
+                            <td className="py-2.5 px-4 text-center border-r border-slate-100">
+                              <NumericCell value={unit.vtrOrd} onChange={(val) => handleUnitChange(unit.id, 'vtrOrd', val)} />
+                            </td>
+
+                            <td className="py-2.5 px-4 text-center border-r border-slate-100">
+                              <NumericCell value={unit.vtrSeg} onChange={(val) => handleUnitChange(unit.id, 'vtrSeg', val)} />
+                            </td>
+
+                            <td className="py-2.5 px-4 text-center text-sm font-extrabold text-slate-900 bg-slate-50/40 border-r border-slate-100">
+                              {formatNum(vtrTotal)}
+                            </td>
+
+                            <td className="py-2.5 px-4 text-center border-r border-slate-100">
+                              <NumericCell value={unit.pmOrd} onChange={(val) => handleUnitChange(unit.id, 'pmOrd', val)} />
+                            </td>
+
+                            <td className="py-2.5 px-4 text-center border-r border-slate-100">
+                              <NumericCell value={unit.pmSeg} onChange={(val) => handleUnitChange(unit.id, 'pmSeg', val)} />
+                            </td>
+
+                            <td className="py-2.5 px-4 text-center text-sm font-extrabold text-slate-900 bg-slate-50/40">
+                              {formatNum(pmTotal)}
+                            </td>
+                          </tr>
+                        );
+                      })}
+
+                      {/* OP. VISIBILIDADE ROW */}
+                      <tr className="bg-blue-50/50 border-t border-blue-200 font-bold text-slate-900">
+                        <td className="py-2.5 px-4 text-sm font-extrabold uppercase text-blue-900 text-left border-r border-slate-100" colSpan={3}>
+                          <div className="flex items-center gap-2">
+                            <Eye className="w-4 h-4 text-blue-600" />
+                            <span>OPERAÇÃO VISIBILIDADE</span>
+                          </div>
+                        </td>
+                        <td className="py-2.5 px-4 text-center border-r border-slate-100" colSpan={2}>
+                          <div className="flex items-center justify-center gap-2">
+                            <span className="text-xs font-bold text-slate-700 uppercase">VTR:</span>
+                            <NumericCell
+                              value={opVisibilidade.vtr}
+                              onChange={(val) => setOpVisibilidade(prev => ({ ...prev, vtr: val }))}
+                            />
+                          </div>
+                        </td>
+                        <td className="py-2.5 px-4 text-center border-r border-slate-100" colSpan={2}>
+                          <div className="flex items-center justify-center gap-2">
+                            <span className="text-xs font-bold text-slate-700 uppercase">PM VTR:</span>
+                            <NumericCell
+                              value={opVisibilidade.pmVtr}
+                              onChange={(val) => setOpVisibilidade(prev => ({ ...prev, pmVtr: val }))}
+                            />
+                          </div>
+                        </td>
+                        <td className="py-2.5 px-4 text-center" colSpan={2}>
+                          <div className="flex items-center justify-center gap-2">
+                            <span className="text-xs font-bold text-slate-700 uppercase">POG:</span>
+                            <NumericCell
+                              value={opVisibilidade.pog}
+                              onChange={(val) => setOpVisibilidade(prev => ({ ...prev, pog: val }))}
+                            />
+                          </div>
+                        </td>
+                      </tr>
+
+                      {/* TOTAL GERAL ROW */}
+                      <tr className="bg-slate-100 border-t-2 border-slate-300 font-black text-slate-900">
+                        <td className="py-3 px-4 text-sm" colSpan={3}>TOTAL GERAL</td>
+                        <td className="py-3 px-4 text-center text-sm">{formatNum(totalVtrOrd)}</td>
+                        <td className="py-3 px-4 text-center text-sm">{formatNum(totalVtrSeg)}</td>
+                        <td className="py-3 px-4 text-center text-sm text-amber-600 font-black">{formatNum(grandTotalViaturas)}</td>
+                        <td className="py-3 px-4 text-center text-sm">{formatNum(totalPmOrd)}</td>
+                        <td className="py-3 px-4 text-center text-sm">{formatNum(totalPmSeg)}</td>
+                        <td className="py-3 px-4 text-center text-sm text-amber-600 font-black">{formatNum(grandTotalEfetivo)}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Mobile View */}
+                <div className="grid grid-cols-1 gap-6 p-4 md:hidden">
+                  {units.map((unit) => {
+                    const vtrTotal = unit.vtrOrd + unit.vtrSeg;
+                    const pmTotal = unit.pmOrd + unit.pmSeg;
+
+                    return (
+                      <div
+                        key={unit.id}
+                        className={`p-4 rounded-xl border flex flex-col gap-4 ${unit.isHQ ? 'bg-blue-50/30 border-blue-200' : 'bg-white border-slate-200'}`}
+                      >
+                        <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                          <span className="font-extrabold text-slate-800 text-sm flex items-center gap-1.5">
+                            {unit.isHQ && <Shield className="w-4 h-4 text-blue-600" />}
+                            {unit.name}
+                          </span>
+                          <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">
+                            {unit.isHQ ? 'QG Batalhão' : 'Subárea'}
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="flex flex-col gap-1">
+                            <label className="text-[10px] font-bold text-slate-505 uppercase">Supervisor</label>
                             <input
                               type="text"
                               placeholder={unit.isHQ ? "SA LESTE (CPO)" : "Nome de Guerra"}
                               value={unit.isHQ ? (header.cpoNome ? `${header.cpoNome.toUpperCase()} (CPO)` : 'SA LESTE (CPO)') : unit.supervisor}
                               onChange={(e) => handleUnitChange(unit.id, 'supervisor', e.target.value)}
                               readOnly={unit.isHQ}
-                              className={`w-full px-3 py-1.5 text-xs rounded border outline-none transition-all ${unit.isHQ ? 'bg-slate-100 text-slate-500 font-bold border-slate-200 cursor-not-allowed' : 'border-slate-350 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white text-slate-800'}`}
+                              className={`px-3 py-1.5 text-xs rounded border outline-none ${unit.isHQ ? 'bg-slate-100 text-slate-505 font-bold border-slate-200 cursor-not-allowed' : 'border-slate-350 focus:border-blue-500 bg-white text-slate-800'}`}
                             />
-                          </td>
-
-                          <td className="py-2.5 px-4 border-r border-slate-100">
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <label className="text-[10px] font-bold text-slate-505 uppercase">CI / Matrícula</label>
                             <input
                               type="text"
-                              placeholder="CI"
                               value={unit.isHQ ? header.cpoId : unit.supervisorId}
                               onChange={(e) => handleUnitChange(unit.id, 'supervisorId', e.target.value.replace(/\D/g, '').slice(0, 5))}
                               onBlur={() => !unit.isHQ && handleUnitIdBlur(unit.id)}
                               maxLength={5}
                               disabled={unit.isHQ}
-                              className={`w-full px-3 py-1.5 text-xs rounded border text-center outline-none transition-all ${unit.isHQ ? 'bg-slate-100 text-slate-500 font-bold border-slate-200 cursor-not-allowed' : 'border-slate-350 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white text-slate-800'}`}
+                              className={`px-3 py-1.5 text-xs rounded border text-center outline-none ${unit.isHQ ? 'bg-slate-100 text-slate-505 border-slate-200 cursor-not-allowed' : 'border-slate-350 focus:border-blue-500 bg-white text-slate-800'}`}
                             />
-                          </td>
-
-                          <td className="py-2.5 px-4 text-center border-r border-slate-100">
-                            <NumericCell value={unit.vtrOrd} onChange={(val) => handleUnitChange(unit.id, 'vtrOrd', val)} />
-                          </td>
-
-                          <td className="py-2.5 px-4 text-center border-r border-slate-100">
-                            <NumericCell value={unit.vtrSeg} onChange={(val) => handleUnitChange(unit.id, 'vtrSeg', val)} />
-                          </td>
-
-                          <td className="py-2.5 px-4 text-center text-sm font-extrabold text-slate-900 bg-slate-50/40 border-r border-slate-100">
-                            {formatNum(vtrTotal)}
-                          </td>
-
-                          <td className="py-2.5 px-4 text-center border-r border-slate-100">
-                            <NumericCell value={unit.pmOrd} onChange={(val) => handleUnitChange(unit.id, 'pmOrd', val)} />
-                          </td>
-
-                          <td className="py-2.5 px-4 text-center border-r border-slate-100">
-                            <NumericCell value={unit.pmSeg} onChange={(val) => handleUnitChange(unit.id, 'pmSeg', val)} />
-                          </td>
-
-                          <td className="py-2.5 px-4 text-center text-sm font-extrabold text-slate-900 bg-slate-50/40">
-                            {formatNum(pmTotal)}
-                          </td>
-                        </tr>
-                      );
-                    })}
-
-                    {/* OP. VISIBILIDADE ROW */}
-                    <tr className="bg-blue-50/50 border-t border-blue-200 font-bold text-slate-900">
-                      <td className="py-2.5 px-4 text-sm font-extrabold uppercase text-blue-900 text-left border-r border-slate-100" colSpan={3}>
-                        <div className="flex items-center gap-2">
-                          <Eye className="w-4 h-4 text-blue-600" />
-                          <span>OPERAÇÃO VISIBILIDADE</span>
-                        </div>
-                      </td>
-                      <td className="py-2.5 px-4 text-center border-r border-slate-100" colSpan={2}>
-                        <div className="flex items-center justify-center gap-2">
-                          <span className="text-xs font-bold text-slate-700 uppercase">VTR:</span>
-                          <NumericCell
-                            value={opVisibilidade.vtr}
-                            onChange={(val) => setOpVisibilidade(prev => ({ ...prev, vtr: val }))}
-                          />
-                        </div>
-                      </td>
-                      <td className="py-2.5 px-4 text-center border-r border-slate-100" colSpan={2}>
-                        <div className="flex items-center justify-center gap-2">
-                          <span className="text-xs font-bold text-slate-700 uppercase">PM VTR:</span>
-                          <NumericCell
-                            value={opVisibilidade.pmVtr}
-                            onChange={(val) => setOpVisibilidade(prev => ({ ...prev, pmVtr: val }))}
-                          />
-                        </div>
-                      </td>
-                      <td className="py-2.5 px-4 text-center" colSpan={2}>
-                        <div className="flex items-center justify-center gap-2">
-                          <span className="text-xs font-bold text-slate-700 uppercase">POG:</span>
-                          <NumericCell
-                            value={opVisibilidade.pog}
-                            onChange={(val) => setOpVisibilidade(prev => ({ ...prev, pog: val }))}
-                          />
-                        </div>
-                      </td>
-                    </tr>
-
-                    {/* TOTAL GERAL ROW */}
-                    <tr className="bg-slate-100 border-t-2 border-slate-300 font-black text-slate-900">
-                      <td className="py-3 px-4 text-sm" colSpan={3}>TOTAL GERAL</td>
-                      <td className="py-3 px-4 text-center text-sm">{formatNum(totalVtrOrd)}</td>
-                      <td className="py-3 px-4 text-center text-sm">{formatNum(totalVtrSeg)}</td>
-                      <td className="py-3 px-4 text-center text-sm text-amber-600 font-black">{formatNum(grandTotalViaturas)}</td>
-                      <td className="py-3 px-4 text-center text-sm">{formatNum(totalPmOrd)}</td>
-                      <td className="py-3 px-4 text-center text-sm">{formatNum(totalPmSeg)}</td>
-                      <td className="py-3 px-4 text-center text-sm text-amber-600 font-black">{formatNum(grandTotalEfetivo)}</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Mobile View */}
-              <div className="grid grid-cols-1 gap-6 p-4 md:hidden">
-                {units.map((unit) => {
-                  const vtrTotal = unit.vtrOrd + unit.vtrSeg;
-                  const pmTotal = unit.pmOrd + unit.pmSeg;
-
-                  return (
-                    <div
-                      key={unit.id}
-                      className={`p-4 rounded-xl border flex flex-col gap-4 ${unit.isHQ ? 'bg-blue-50/30 border-blue-200' : 'bg-white border-slate-200'}`}
-                    >
-                      <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                        <span className="font-extrabold text-slate-800 text-sm flex items-center gap-1.5">
-                          {unit.isHQ && <Shield className="w-4 h-4 text-blue-600" />}
-                          {unit.name}
-                        </span>
-                        <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">
-                          {unit.isHQ ? 'QG Batalhão' : 'Subárea'}
-                        </span>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="flex flex-col gap-1">
-                          <label className="text-[10px] font-bold text-slate-505 uppercase">Supervisor</label>
-                          <input
-                            type="text"
-                            placeholder={unit.isHQ ? "SA LESTE (CPO)" : "Nome de Guerra"}
-                            value={unit.isHQ ? (header.cpoNome ? `${header.cpoNome.toUpperCase()} (CPO)` : 'SA LESTE (CPO)') : unit.supervisor}
-                            onChange={(e) => handleUnitChange(unit.id, 'supervisor', e.target.value)}
-                            readOnly={unit.isHQ}
-                            className={`px-3 py-1.5 text-xs rounded border outline-none ${unit.isHQ ? 'bg-slate-100 text-slate-505 font-bold border-slate-200 cursor-not-allowed' : 'border-slate-350 focus:border-blue-500 bg-white text-slate-800'}`}
-                          />
-                        </div>
-                        <div className="flex flex-col gap-1">
-                          <label className="text-[10px] font-bold text-slate-505 uppercase">CI / Matrícula</label>
-                          <input
-                            type="text"
-                            value={unit.isHQ ? header.cpoId : unit.supervisorId}
-                            onChange={(e) => handleUnitChange(unit.id, 'supervisorId', e.target.value.replace(/\D/g, '').slice(0, 5))}
-                            onBlur={() => !unit.isHQ && handleUnitIdBlur(unit.id)}
-                            maxLength={5}
-                            disabled={unit.isHQ}
-                            className={`px-3 py-1.5 text-xs rounded border text-center outline-none ${unit.isHQ ? 'bg-slate-100 text-slate-505 border-slate-200 cursor-not-allowed' : 'border-slate-350 focus:border-blue-500 bg-white text-slate-800'}`}
-                          />
-                        </div>
-                      </div>
-
-                      {/* Viaturas */}
-                      <div className="p-3 bg-slate-50 border border-slate-150 rounded-lg">
-                        <div className="flex justify-between items-center mb-2">
-                          <span className="text-xs font-bold text-amber-700 uppercase tracking-wide">Viaturas (VTRs)</span>
-                          <span className="text-xs font-black text-slate-800">Total: {formatNum(vtrTotal)}</span>
-                        </div>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="flex flex-col gap-1 items-center">
-                            <label className="text-[9px] font-bold text-slate-400 uppercase">ORD</label>
-                            <NumericCell value={unit.vtrOrd} onChange={(val) => handleUnitChange(unit.id, 'vtrOrd', val)} />
                           </div>
-                          <div className="flex flex-col gap-1 items-center">
-                            <label className="text-[9px] font-bold text-slate-400 uppercase">SEG</label>
-                            <NumericCell value={unit.vtrSeg} onChange={(val) => handleUnitChange(unit.id, 'vtrSeg', val)} />
+                        </div>
+
+                        {/* Viaturas */}
+                        <div className="p-3 bg-slate-50 border border-slate-150 rounded-lg">
+                          <div className="flex justify-between items-center mb-2">
+                            <span className="text-xs font-bold text-amber-700 uppercase tracking-wide">Viaturas (VTRs)</span>
+                            <span className="text-xs font-black text-slate-800">Total: {formatNum(vtrTotal)}</span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="flex flex-col gap-1 items-center">
+                              <label className="text-[9px] font-bold text-slate-400 uppercase">ORD</label>
+                              <NumericCell value={unit.vtrOrd} onChange={(val) => handleUnitChange(unit.id, 'vtrOrd', val)} />
+                            </div>
+                            <div className="flex flex-col gap-1 items-center">
+                              <label className="text-[9px] font-bold text-slate-400 uppercase">SEG</label>
+                              <NumericCell value={unit.vtrSeg} onChange={(val) => handleUnitChange(unit.id, 'vtrSeg', val)} />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Efetivo */}
+                        <div className="p-3 bg-slate-50 border border-slate-150 rounded-lg">
+                          <div className="flex justify-between items-center mb-2">
+                            <span className="text-xs font-bold text-blue-700 uppercase tracking-wide">Efetivo (PMs)</span>
+                            <span className="text-xs font-black text-slate-800">Total: {formatNum(pmTotal)}</span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="flex flex-col gap-1 items-center">
+                              <label className="text-[9px] font-bold text-slate-400 uppercase">ORD</label>
+                              <NumericCell value={unit.pmOrd} onChange={(val) => handleUnitChange(unit.id, 'pmOrd', val)} />
+                            </div>
+                            <div className="flex flex-col gap-1 items-center">
+                              <label className="text-[9px] font-bold text-slate-400 uppercase">SEG</label>
+                              <NumericCell value={unit.pmSeg} onChange={(val) => handleUnitChange(unit.id, 'pmSeg', val)} />
+                            </div>
                           </div>
                         </div>
                       </div>
+                    );
+                  })}
 
-                      {/* Efetivo */}
-                      <div className="p-3 bg-slate-50 border border-slate-150 rounded-lg">
-                        <div className="flex justify-between items-center mb-2">
-                          <span className="text-xs font-bold text-blue-700 uppercase tracking-wide">Efetivo (PMs)</span>
-                          <span className="text-xs font-black text-slate-800">Total: {formatNum(pmTotal)}</span>
-                        </div>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="flex flex-col gap-1 items-center">
-                            <label className="text-[9px] font-bold text-slate-400 uppercase">ORD</label>
-                            <NumericCell value={unit.pmOrd} onChange={(val) => handleUnitChange(unit.id, 'pmOrd', val)} />
-                          </div>
-                          <div className="flex flex-col gap-1 items-center">
-                            <label className="text-[9px] font-bold text-slate-400 uppercase">SEG</label>
-                            <NumericCell value={unit.pmSeg} onChange={(val) => handleUnitChange(unit.id, 'pmSeg', val)} />
-                          </div>
-                        </div>
+                  {/* OP. VISIBILIDADE MOBILE CARD */}
+                  <div className="p-4 rounded-xl border border-blue-200 bg-blue-50/40 flex flex-col gap-3">
+                    <div className="flex items-center justify-between pb-2 border-b border-blue-100">
+                      <span className="font-extrabold text-blue-900 text-sm flex items-center gap-1.5 uppercase">
+                        <Eye className="w-4 h-4 text-blue-600" />
+                        OP. VISIBILIDADE
+                      </span>
+                      <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">
+                        Operação Especial
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="p-2.5 bg-white border border-slate-200 rounded-lg flex flex-col items-center gap-1 shadow-sm">
+                        <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">VTR</span>
+                        <NumericCell
+                          value={opVisibilidade.vtr}
+                          onChange={(val) => setOpVisibilidade(prev => ({ ...prev, vtr: val }))}
+                        />
+                      </div>
+                      <div className="p-2.5 bg-white border border-slate-200 rounded-lg flex flex-col items-center gap-1 shadow-sm">
+                        <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">PM VTR</span>
+                        <NumericCell
+                          value={opVisibilidade.pmVtr}
+                          onChange={(val) => setOpVisibilidade(prev => ({ ...prev, pmVtr: val }))}
+                        />
+                      </div>
+                      <div className="p-2.5 bg-white border border-slate-200 rounded-lg flex flex-col items-center gap-1 shadow-sm">
+                        <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">POG</span>
+                        <NumericCell
+                          value={opVisibilidade.pog}
+                          onChange={(val) => setOpVisibilidade(prev => ({ ...prev, pog: val }))}
+                        />
                       </div>
                     </div>
-                  );
-                })}
-
-                {/* OP. VISIBILIDADE MOBILE CARD */}
-                <div className="p-4 rounded-xl border border-blue-200 bg-blue-50/40 flex flex-col gap-3">
-                  <div className="flex items-center justify-between pb-2 border-b border-blue-100">
-                    <span className="font-extrabold text-blue-900 text-sm flex items-center gap-1.5 uppercase">
-                      <Eye className="w-4 h-4 text-blue-600" />
-                      OP. VISIBILIDADE
-                    </span>
-                    <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">
-                      Operação Especial
-                    </span>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-2">
-                    <div className="p-2.5 bg-white border border-slate-200 rounded-lg flex flex-col items-center gap-1 shadow-sm">
-                      <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">VTR</span>
-                      <NumericCell
-                        value={opVisibilidade.vtr}
-                        onChange={(val) => setOpVisibilidade(prev => ({ ...prev, vtr: val }))}
-                      />
+                  {/* TOTAL GERAL MOBILE CARD */}
+                  <div className="p-4 rounded-xl border-2 border-slate-300 bg-slate-100 flex flex-col gap-3">
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                      <span className="font-black text-slate-900 text-sm uppercase">TOTAL GERAL</span>
                     </div>
-                    <div className="p-2.5 bg-white border border-slate-200 rounded-lg flex flex-col items-center gap-1 shadow-sm">
-                      <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">PM VTR</span>
-                      <NumericCell
-                        value={opVisibilidade.pmVtr}
-                        onChange={(val) => setOpVisibilidade(prev => ({ ...prev, pmVtr: val }))}
-                      />
-                    </div>
-                    <div className="p-2.5 bg-white border border-slate-200 rounded-lg flex flex-col items-center gap-1 shadow-sm">
-                      <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">POG</span>
-                      <NumericCell
-                        value={opVisibilidade.pog}
-                        onChange={(val) => setOpVisibilidade(prev => ({ ...prev, pog: val }))}
-                      />
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="p-3 bg-white border border-slate-200 rounded-lg flex flex-col items-center">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase">Viaturas</span>
+                        <span className="text-xl font-black text-amber-600 mt-1">{formatNum(grandTotalViaturas)}</span>
+                      </div>
+                      <div className="p-3 bg-white border border-slate-200 rounded-lg flex flex-col items-center">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase">Efetivo</span>
+                        <span className="text-xl font-black text-amber-600 mt-1">{formatNum(grandTotalEfetivo)}</span>
+                      </div>
                     </div>
                   </div>
                 </div>
+              </section>
 
-                {/* TOTAL GERAL MOBILE CARD */}
-                <div className="p-4 rounded-xl border-2 border-slate-300 bg-slate-100 flex flex-col gap-3">
-                  <div className="flex items-center justify-between pb-2 border-b border-slate-200">
-                    <span className="font-black text-slate-900 text-sm uppercase">TOTAL GERAL</span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="p-3 bg-white border border-slate-200 rounded-lg flex flex-col items-center">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase">Viaturas</span>
-                      <span className="text-xl font-black text-amber-600 mt-1">{formatNum(grandTotalViaturas)}</span>
-                    </div>
-                    <div className="p-3 bg-white border border-slate-200 rounded-lg flex flex-col items-center">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase">Efetivo</span>
-                      <span className="text-xl font-black text-amber-600 mt-1">{formatNum(grandTotalEfetivo)}</span>
-                    </div>
-                  </div>
+              {/* Incidents / Alterations Section */}
+              <section className="glass-panel p-6 rounded-2xl glow-accent">
+                <div className="flex items-center gap-2 border-b border-slate-200 pb-3 mb-6">
+                  <AlertTriangle className="w-5 h-5 text-amber-500 animate-pulse" />
+                  <h2 className="text-lg font-bold text-slate-800 tracking-wide uppercase">Alterações / Ocorrências de Serviço</h2>
                 </div>
-              </div>
-            </section>
 
-            {/* Incidents / Alterations Section */}
-            <section className="glass-panel p-6 rounded-2xl glow-accent">
-              <div className="flex items-center gap-2 border-b border-slate-200 pb-3 mb-6">
-                <AlertTriangle className="w-5 h-5 text-amber-500 animate-pulse" />
-                <h2 className="text-lg font-bold text-slate-800 tracking-wide uppercase">Alterações / Ocorrências de Serviço</h2>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <IncidentListField
-                  label="Faltas de Efetivo (Ex: Nome/ID)"
-                  items={faltas}
-                  placeholder="EX: SD STIVE FULANO (123456) - OPM"
-                  onAdd={() => handleAddIncidentItem('faltas')}
-                  onChange={(idx, val) => handleIncidentItemChange('faltas', idx, val)}
-                  onRemove={(idx) => handleRemoveIncidentItem('faltas', idx)}
-                />
-                <IncidentListField
-                  label="Atrasos de Serviço"
-                  items={atrasos}
-                  placeholder="EX: SD STIVE FULANO (123456) - OPM"
-                  onAdd={() => handleAddIncidentItem('atrasos')}
-                  onChange={(idx, val) => handleIncidentItemChange('atrasos', idx, val)}
-                  onRemove={(idx) => handleRemoveIncidentItem('atrasos', idx)}
-                />
-                <IncidentListField
-                  label="Dispensas do Turno"
-                  items={dispensas}
-                  placeholder="EX: SD STIVE FULANO (123456) - OPM"
-                  onAdd={() => handleAddIncidentItem('dispensas')}
-                  onChange={(idx, val) => handleIncidentItemChange('dispensas', idx, val)}
-                  onRemove={(idx) => handleRemoveIncidentItem('dispensas', idx)}
-                />
-              </div>
-            </section>
-
-            {/* Tab 1 Actions Panel */}
-            <section className="flex flex-col sm:flex-row flex-wrap gap-4 items-center justify-center p-6 rounded-2xl bg-slate-100 border border-slate-200 glass-panel">
-              <button
-                onClick={handleCopyToClipboard}
-                className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3.5 font-bold uppercase tracking-wider text-xs rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg transition-all cursor-pointer"
-              >
-                <Copy className="w-4 h-4" />
-                Copiar Texto TXT
-              </button>
-
-              <button
-                onClick={handleDownloadTXT}
-                className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3.5 font-bold uppercase tracking-wider text-xs rounded-xl bg-white hover:bg-slate-50 text-blue-600 border border-slate-350 hover:border-blue-400 transition-all cursor-pointer"
-              >
-                <Download className="w-4 h-4" />
-                Baixar Relatório TXT
-              </button>
-
-              <button
-                onClick={handleGeneratePDF}
-                className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3.5 font-bold uppercase tracking-wider text-xs rounded-xl bg-amber-500 hover:bg-amber-600 text-white shadow-md hover:shadow-lg transition-all cursor-pointer"
-              >
-                <FileText className="w-4 h-4" />
-                Gerar Relatório PDF
-              </button>
-
-              <button
-                onClick={() => setShowClearConfirm(true)}
-                className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3.5 font-bold uppercase tracking-wider text-xs rounded-xl bg-white hover:bg-rose-50 text-rose-600 border border-rose-200 hover:border-rose-300 transition-all cursor-pointer"
-              >
-                <Trash2 className="w-4 h-4" />
-                Limpar Dados
-              </button>
-            </section>
-          </>
-        )}
-
-        {/* ========================================================================= */}
-        {/* SCREEN 2: RESUMO DE OCORRÊNCIAS                                           */}
-        {/* ========================================================================= */}
-        {activeTab === 'ocorrencias' && (
-          <>
-            {/* Occurrences Main Editor Form */}
-            <section className="glass-panel p-6 rounded-2xl glow-accent">
-              <div className="flex justify-between items-center border-b border-slate-200 pb-3 mb-6">
-                <div className="flex items-center gap-2">
-                  <FileSpreadsheet className="w-5 h-5 text-blue-600" />
-                  <h2 className="text-lg font-bold text-slate-800 tracking-wide uppercase">Lançamento de Ocorrências por Unidade</h2>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <IncidentListField
+                    label="Faltas de Efetivo (Ex: Nome/ID)"
+                    items={faltas}
+                    placeholder="EX: SD STIVE FULANO (123456) - OPM"
+                    onAdd={() => handleAddIncidentItem('faltas')}
+                    onChange={(idx, val) => handleIncidentItemChange('faltas', idx, val)}
+                    onRemove={(idx) => handleRemoveIncidentItem('faltas', idx)}
+                  />
+                  <IncidentListField
+                    label="Atrasos de Serviço"
+                    items={atrasos}
+                    placeholder="EX: SD STIVE FULANO (123456) - OPM"
+                    onAdd={() => handleAddIncidentItem('atrasos')}
+                    onChange={(idx, val) => handleIncidentItemChange('atrasos', idx, val)}
+                    onRemove={(idx) => handleRemoveIncidentItem('atrasos', idx)}
+                  />
+                  <IncidentListField
+                    label="Dispensas do Turno"
+                    items={dispensas}
+                    placeholder="EX: SD STIVE FULANO (123456) - OPM"
+                    onAdd={() => handleAddIncidentItem('dispensas')}
+                    onChange={(idx, val) => handleIncidentItemChange('dispensas', idx, val)}
+                    onRemove={(idx) => handleRemoveIncidentItem('dispensas', idx)}
+                  />
                 </div>
-                <span className="text-xs font-semibold text-slate-505 italic">Sem ocorrências exibirá "Sem ocorrência de grande vulto."</span>
-              </div>
+              </section>
 
-              <div className="flex flex-col gap-6">
-                {OCCURRENCE_UNITS.map((unit) => {
-                  const list = occurrences[unit.id] || [];
-                  const activeCount = list.filter(o => o.nature.trim() !== '').length;
+              {/* Tab 1 Actions Panel */}
+              <section className="flex flex-col sm:flex-row flex-wrap gap-4 items-center justify-center p-6 rounded-2xl bg-slate-100 border border-slate-200 glass-panel">
+                <button
+                  onClick={handleCopyToClipboard}
+                  className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3.5 font-bold uppercase tracking-wider text-xs rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg transition-all cursor-pointer"
+                >
+                  <Copy className="w-4 h-4" />
+                  Copiar Texto TXT
+                </button>
 
-                  return (
-                    <div
-                      key={unit.id}
-                      className="border border-slate-200 rounded-xl overflow-hidden shadow-xs hover:border-slate-300 transition-all bg-white"
-                    >
-                      {/* Unit Title Banner inside occurrences panel */}
-                      <div className="bg-slate-50 px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200">
-                        <div className="flex items-center gap-3">
-                          <img
-                            src={`./logos/${unit.id}.png`}
-                            alt={`Logo ${unit.name}`}
-                            className="w-6 h-6 object-contain"
-                            onError={(e) => {
-                              e.target.onerror = null;
-                              e.target.style.display = 'none';
-                            }}
-                          />
-                          <span className="font-extrabold text-slate-800 text-sm tracking-wide">{unit.name}</span>
-                          {activeCount === 0 ? (
-                            <span className="px-2 py-0.5 text-[9px] font-bold text-slate-500 bg-slate-200 rounded uppercase">Sem ocorrência</span>
+                <button
+                  onClick={handleDownloadTXT}
+                  className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3.5 font-bold uppercase tracking-wider text-xs rounded-xl bg-white hover:bg-slate-50 text-blue-600 border border-slate-350 hover:border-blue-400 transition-all cursor-pointer"
+                >
+                  <Download className="w-4 h-4" />
+                  Baixar Relatório TXT
+                </button>
+
+                <button
+                  onClick={handleGeneratePDF}
+                  className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3.5 font-bold uppercase tracking-wider text-xs rounded-xl bg-amber-500 hover:bg-amber-600 text-white shadow-md hover:shadow-lg transition-all cursor-pointer"
+                >
+                  <FileText className="w-4 h-4" />
+                  Gerar Relatório PDF
+                </button>
+
+                <button
+                  onClick={() => setShowClearConfirm(true)}
+                  className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3.5 font-bold uppercase tracking-wider text-xs rounded-xl bg-white hover:bg-rose-50 text-rose-600 border border-rose-200 hover:border-rose-300 transition-all cursor-pointer"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Limpar Dados
+                </button>
+              </section>
+            </>
+          )}
+
+          {/* ========================================================================= */}
+          {/* SCREEN 2: RESUMO DE OCORRÊNCIAS                                           */}
+          {/* ========================================================================= */}
+          {activeTab === 'ocorrencias' && (
+            <>
+              {/* Occurrences Main Editor Form */}
+              <section className="glass-panel p-6 rounded-2xl glow-accent">
+                <div className="flex justify-between items-center border-b border-slate-200 pb-3 mb-6">
+                  <div className="flex items-center gap-2">
+                    <FileSpreadsheet className="w-5 h-5 text-blue-600" />
+                    <h2 className="text-lg font-bold text-slate-800 tracking-wide uppercase">Lançamento de Ocorrências por Unidade</h2>
+                  </div>
+                  <span className="text-xs font-semibold text-slate-505 italic">Sem ocorrências exibirá "Sem ocorrência de grande vulto."</span>
+                </div>
+
+                <div className="flex flex-col gap-6">
+                  {OCCURRENCE_UNITS.map((unit) => {
+                    const list = occurrences[unit.id] || [];
+                    const activeCount = list.filter(o => o.nature.trim() !== '').length;
+
+                    return (
+                      <div
+                        key={unit.id}
+                        className="border border-slate-200 rounded-xl overflow-hidden shadow-xs hover:border-slate-300 transition-all bg-white"
+                      >
+                        {/* Unit Title Banner inside occurrences panel */}
+                        <div className="bg-slate-50 px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200">
+                          <div className="flex items-center gap-3">
+                            <img
+                              src={`./logos/${unit.id}.png`}
+                              alt={`Logo ${unit.name}`}
+                              className="w-6 h-6 object-contain"
+                              onError={(e) => {
+                                e.target.onerror = null;
+                                e.target.style.display = 'none';
+                              }}
+                            />
+                            <span className="font-extrabold text-slate-800 text-sm tracking-wide">{unit.name}</span>
+                            {activeCount === 0 ? (
+                              <span className="px-2 py-0.5 text-[9px] font-bold text-slate-500 bg-slate-200 rounded uppercase">Sem ocorrência</span>
+                            ) : (
+                              <span className="px-2 py-0.5 text-[9px] font-bold text-blue-600 bg-blue-100 rounded uppercase">
+                                {activeCount} Ocorrência{activeCount > 1 ? 's' : ''}
+                              </span>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleAddOccurrence(unit.id)}
+                            className="self-start sm:self-auto text-xs px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
+                          >
+                            <Plus className="w-3.5 h-3.5" /> Adicionar Ocorrência
+                          </button>
+                        </div>
+
+                        {/* List of Occurrence Inputs */}
+                        <div className="p-4 flex flex-col gap-4">
+                          {list.length === 0 ? (
+                            <p className="text-xs text-slate-400 italic">Nenhuma ocorrência registrada. O relatório exibirá "Sem ocorrência de grande vulto."</p>
                           ) : (
-                            <span className="px-2 py-0.5 text-[9px] font-bold text-blue-600 bg-blue-100 rounded uppercase">
-                              {activeCount} Ocorrência{activeCount > 1 ? 's' : ''}
-                            </span>
-                          )}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => handleAddOccurrence(unit.id)}
-                          className="self-start sm:self-auto text-xs px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
-                        >
-                          <Plus className="w-3.5 h-3.5" /> Adicionar Ocorrência
-                        </button>
-                      </div>
-
-                      {/* List of Occurrence Inputs */}
-                      <div className="p-4 flex flex-col gap-4">
-                        {list.length === 0 ? (
-                          <p className="text-xs text-slate-400 italic">Nenhuma ocorrência registrada. O relatório exibirá "Sem ocorrência de grande vulto."</p>
-                        ) : (
-                          <div className="flex flex-col gap-4 divide-y divide-slate-100">
-                            {list.map((occ, idx) => (
-                              <div
-                                key={idx}
-                                className={`pt-4 first:pt-0 flex flex-col gap-4 relative ${list.length > 1 ? 'pr-8' : ''}`}
-                              >
-                                {/* Remove button for occurrence */}
-                                <button
-                                  type="button"
-                                  onClick={() => handleRemoveOccurrence(unit.id, idx)}
-                                  className="absolute top-2 right-0 p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-all cursor-pointer"
-                                  title="Remover Ocorrência"
+                            <div className="flex flex-col gap-4 divide-y divide-slate-100">
+                              {list.map((occ, idx) => (
+                                <div
+                                  key={idx}
+                                  className={`pt-4 first:pt-0 flex flex-col gap-4 relative ${list.length > 1 ? 'pr-8' : ''}`}
                                 >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
+                                  {/* Remove button for occurrence */}
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveOccurrence(unit.id, idx)}
+                                    className="absolute top-2 right-0 p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-all cursor-pointer"
+                                    title="Remover Ocorrência"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
 
-                                {/* Form Inputs Row */}
-                                <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
-                                  {/* Natureza */}
-                                  <div className="flex flex-col gap-1.5">
-                                    <label className="text-[10px] font-bold text-slate-500 uppercase">Natureza / Descrição</label>
-                                    <input
-                                      type="text"
-                                      placeholder="Ex: Furto, Homicídio, Roubo..."
-                                      value={occ.nature}
-                                      onChange={(e) => handleOccurrenceFieldChange(unit.id, idx, 'nature', e.target.value)}
-                                      className="glass-input px-3 py-2 text-xs rounded-lg"
-                                      list={`natures-${unit.id}-${idx}`}
-                                    />
-                                    {/* DataList for Quick Suggestions */}
-                                    <datalist id={`natures-${unit.id}-${idx}`}>
-                                      {NATURE_SUGGESTIONS.map(s => <option key={s} value={s} />)}
-                                    </datalist>
-                                  </div>
-
-                                  {/* CIOPS */}
-                                  <div className="flex flex-col gap-1.5">
-                                    <div className="flex justify-between items-center">
-                                      <label className="text-[10px] font-bold text-slate-500 uppercase">Nº CIOPS</label>
-                                      <label className="flex items-center gap-1 text-[10px] font-semibold text-blue-600 cursor-pointer">
-                                        <input
-                                          type="checkbox"
-                                          checked={occ.ciopsInProg}
-                                          onChange={(e) => {
-                                            handleOccurrenceFieldChange(unit.id, idx, 'ciopsInProg', e.target.checked);
-                                            if (e.target.checked) {
-                                              handleOccurrenceFieldChange(unit.id, idx, 'ciops', 'Ocorrência em Andamento, aguardando numeral');
-                                            } else {
-                                              handleOccurrenceFieldChange(unit.id, idx, 'ciops', '');
-                                            }
-                                          }}
-                                          className="rounded text-blue-600 focus:ring-blue-500 h-3 w-3 cursor-pointer"
-                                        />
-                                        Em andamento
-                                      </label>
+                                  {/* Form Inputs Row */}
+                                  <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
+                                    {/* Natureza */}
+                                    <div className="flex flex-col gap-1.5">
+                                      <label className="text-[10px] font-bold text-slate-500 uppercase">Natureza / Descrição</label>
+                                      <input
+                                        type="text"
+                                        placeholder="Ex: Furto, Homicídio, Roubo..."
+                                        value={occ.nature}
+                                        onChange={(e) => handleOccurrenceFieldChange(unit.id, idx, 'nature', e.target.value)}
+                                        className="glass-input px-3 py-2 text-xs rounded-lg"
+                                        list={`natures-${unit.id}-${idx}`}
+                                      />
+                                      {/* DataList for Quick Suggestions */}
+                                      <datalist id={`natures-${unit.id}-${idx}`}>
+                                        {NATURE_SUGGESTIONS.map(s => <option key={s} value={s} />)}
+                                      </datalist>
                                     </div>
-                                    <input
-                                      type="text"
-                                      placeholder={occ.ciopsInProg ? "Ocorrência em Andamento..." : "Ex: 2256485"}
-                                      value={occ.ciopsInProg ? 'Ocorrência em Andamento, aguardando numeral' : occ.ciops}
-                                      onChange={(e) => handleOccurrenceFieldChange(unit.id, idx, 'ciops', e.target.value)}
-                                      disabled={occ.ciopsInProg}
-                                      className={`glass-input px-3 py-2 text-xs rounded-lg ${occ.ciopsInProg ? 'glass-input-disabled font-semibold text-slate-400 bg-slate-50' : ''}`}
-                                    />
-                                  </div>
 
-                                  {/* BO */}
-                                  <div className="flex flex-col gap-1.5">
-                                    <div className="flex justify-between items-center">
-                                      <label className="text-[10px] font-bold text-slate-500 uppercase">Nº BO</label>
-                                      <label className="flex items-center gap-1 text-[10px] font-semibold text-blue-600 cursor-pointer">
-                                        <input
-                                          type="checkbox"
-                                          checked={occ.boInProg}
-                                          onChange={(e) => {
-                                            handleOccurrenceFieldChange(unit.id, idx, 'boInProg', e.target.checked);
-                                            if (e.target.checked) {
-                                              handleOccurrenceFieldChange(unit.id, idx, 'bo', 'Ocorrência em Andamento, aguardando numeral');
-                                            } else {
-                                              handleOccurrenceFieldChange(unit.id, idx, 'bo', '');
-                                            }
-                                          }}
-                                          className="rounded text-blue-600 focus:ring-blue-500 h-3 w-3 cursor-pointer"
-                                        />
-                                        Em andamento
-                                      </label>
+                                    {/* CIOPS */}
+                                    <div className="flex flex-col gap-1.5">
+                                      <div className="flex justify-between items-center">
+                                        <label className="text-[10px] font-bold text-slate-500 uppercase">Nº CIOPS</label>
+                                        <label className="flex items-center gap-1 text-[10px] font-semibold text-blue-600 cursor-pointer">
+                                          <input
+                                            type="checkbox"
+                                            checked={occ.ciopsInProg}
+                                            onChange={(e) => {
+                                              handleOccurrenceFieldChange(unit.id, idx, 'ciopsInProg', e.target.checked);
+                                              if (e.target.checked) {
+                                                handleOccurrenceFieldChange(unit.id, idx, 'ciops', 'Ocorrência em Andamento, aguardando numeral');
+                                              } else {
+                                                handleOccurrenceFieldChange(unit.id, idx, 'ciops', '');
+                                              }
+                                            }}
+                                            className="rounded text-blue-600 focus:ring-blue-500 h-3 w-3 cursor-pointer"
+                                          />
+                                          Em andamento
+                                        </label>
+                                      </div>
+                                      <input
+                                        type="text"
+                                        placeholder={occ.ciopsInProg ? "Ocorrência em Andamento..." : "Ex: 2256485"}
+                                        value={occ.ciopsInProg ? 'Ocorrência em Andamento, aguardando numeral' : occ.ciops}
+                                        onChange={(e) => handleOccurrenceFieldChange(unit.id, idx, 'ciops', e.target.value)}
+                                        disabled={occ.ciopsInProg}
+                                        className={`glass-input px-3 py-2 text-xs rounded-lg ${occ.ciopsInProg ? 'glass-input-disabled font-semibold text-slate-400 bg-slate-50' : ''}`}
+                                      />
                                     </div>
-                                    <input
-                                      type="text"
-                                      placeholder={occ.boInProg ? "Ocorrência em Andamento..." : "Ex: 00169636/2026"}
-                                      value={occ.boInProg ? 'Ocorrência em Andamento, aguardando numeral' : occ.bo}
-                                      onChange={(e) => handleOccurrenceFieldChange(unit.id, idx, 'bo', e.target.value)}
-                                      disabled={occ.boInProg}
-                                      className={`glass-input px-3 py-2 text-xs rounded-lg ${occ.boInProg ? 'glass-input-disabled font-semibold text-slate-400 bg-slate-50' : ''}`}
-                                    />
+
+                                    {/* BO */}
+                                    <div className="flex flex-col gap-1.5">
+                                      <div className="flex justify-between items-center">
+                                        <label className="text-[10px] font-bold text-slate-500 uppercase">Nº BO</label>
+                                        <label className="flex items-center gap-1 text-[10px] font-semibold text-blue-600 cursor-pointer">
+                                          <input
+                                            type="checkbox"
+                                            checked={occ.boInProg}
+                                            onChange={(e) => {
+                                              handleOccurrenceFieldChange(unit.id, idx, 'boInProg', e.target.checked);
+                                              if (e.target.checked) {
+                                                handleOccurrenceFieldChange(unit.id, idx, 'bo', 'Ocorrência em Andamento, aguardando numeral');
+                                              } else {
+                                                handleOccurrenceFieldChange(unit.id, idx, 'bo', '');
+                                              }
+                                            }}
+                                            className="rounded text-blue-600 focus:ring-blue-500 h-3 w-3 cursor-pointer"
+                                          />
+                                          Em andamento
+                                        </label>
+                                      </div>
+                                      <input
+                                        type="text"
+                                        placeholder={occ.boInProg ? "Ocorrência em Andamento..." : "Ex: 00169636/2026"}
+                                        value={occ.boInProg ? 'Ocorrência em Andamento, aguardando numeral' : occ.bo}
+                                        onChange={(e) => handleOccurrenceFieldChange(unit.id, idx, 'bo', e.target.value)}
+                                        disabled={occ.boInProg}
+                                        className={`glass-input px-3 py-2 text-xs rounded-lg ${occ.boInProg ? 'glass-input-disabled font-semibold text-slate-400 bg-slate-50' : ''}`}
+                                      />
+                                    </div>
                                   </div>
                                 </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
+              </section>
+
+              {/* Tab 2 Actions Panel */}
+              <section className="flex flex-col sm:flex-row flex-wrap gap-4 items-center justify-center p-6 rounded-2xl bg-slate-100 border border-slate-200 glass-panel">
+                <button
+                  onClick={handleCopyToClipboardOcc}
+                  className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3.5 font-bold uppercase tracking-wider text-xs rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg transition-all cursor-pointer"
+                >
+                  <Copy className="w-4 h-4" />
+                  Copiar Resumo TXT
+                </button>
+
+                <button
+                  onClick={handleDownloadOccTXT}
+                  className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3.5 font-bold uppercase tracking-wider text-xs rounded-xl bg-white hover:bg-slate-50 text-blue-600 border border-slate-350 hover:border-blue-400 transition-all cursor-pointer"
+                >
+                  <Download className="w-4 h-4" />
+                  Baixar Resumo TXT
+                </button>
+
+                <button
+                  onClick={handleGenerateOccurrencesPDF}
+                  className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3.5 font-bold uppercase tracking-wider text-xs rounded-xl bg-amber-500 hover:bg-amber-600 text-white shadow-md hover:shadow-lg transition-all cursor-pointer"
+                >
+                  <FileText className="w-4 h-4" />
+                  Gerar Resumo PDF
+                </button>
+
+                <button
+                  onClick={() => setShowOccClearConfirm(true)}
+                  className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3.5 font-bold uppercase tracking-wider text-xs rounded-xl bg-white hover:bg-rose-50 text-rose-600 border border-rose-200 hover:border-rose-300 transition-all cursor-pointer"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Limpar Ocorrências
+                </button>
+              </section>
+            </>
+          )}
+        </main>
+
+        {/* Confirmation Modal to Clear Mapa Data */}
+        {showClearConfirm && (
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-fade-in">
+            <div className="bg-white border border-slate-200 max-w-md w-full rounded-2xl shadow-2xl p-6 relative overflow-hidden">
+              <div className="absolute top-0 inset-x-0 h-1.5 bg-rose-500" />
+              <div className="flex items-start gap-4 text-slate-800">
+                <div className="p-3 rounded-full bg-rose-500/10 text-rose-500">
+                  <AlertTriangle className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold uppercase tracking-wide">Limpar Relatório?</h3>
+                  <p className="text-sm text-slate-505 mt-2 leading-relaxed">
+                    Você está prestes a limpar todos os dados preenchidos e redefinir o logotipo. Esta operação não poderá ser desfeita. Tem certeza?
+                  </p>
+                </div>
               </div>
-            </section>
 
-            {/* Tab 2 Actions Panel */}
-            <section className="flex flex-col sm:flex-row flex-wrap gap-4 items-center justify-center p-6 rounded-2xl bg-slate-100 border border-slate-200 glass-panel">
-              <button
-                onClick={handleCopyToClipboardOcc}
-                className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3.5 font-bold uppercase tracking-wider text-xs rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg transition-all cursor-pointer"
-              >
-                <Copy className="w-4 h-4" />
-                Copiar Resumo TXT
-              </button>
-
-              <button
-                onClick={handleDownloadOccTXT}
-                className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3.5 font-bold uppercase tracking-wider text-xs rounded-xl bg-white hover:bg-slate-50 text-blue-600 border border-slate-350 hover:border-blue-400 transition-all cursor-pointer"
-              >
-                <Download className="w-4 h-4" />
-                Baixar Resumo TXT
-              </button>
-
-              <button
-                onClick={handleGenerateOccurrencesPDF}
-                className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3.5 font-bold uppercase tracking-wider text-xs rounded-xl bg-amber-500 hover:bg-amber-600 text-white shadow-md hover:shadow-lg transition-all cursor-pointer"
-              >
-                <FileText className="w-4 h-4" />
-                Gerar Resumo PDF
-              </button>
-
-              <button
-                onClick={() => setShowOccClearConfirm(true)}
-                className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3.5 font-bold uppercase tracking-wider text-xs rounded-xl bg-white hover:bg-rose-50 text-rose-600 border border-rose-200 hover:border-rose-300 transition-all cursor-pointer"
-              >
-                <Trash2 className="w-4 h-4" />
-                Limpar Ocorrências
-              </button>
-            </section>
-          </>
+              <div className="flex justify-end gap-3 mt-6">
+                <button
+                  onClick={() => setShowClearConfirm(false)}
+                  className="px-5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider text-slate-505 bg-slate-100 hover:bg-slate-200 border border-slate-200 transition-all cursor-pointer"
+                >
+                  Não
+                </button>
+                <button
+                  onClick={handleClearAll}
+                  className="px-5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider text-white bg-rose-600 hover:bg-rose-700 border border-rose-600 transition-all cursor-pointer"
+                >
+                  Sim
+                </button>
+              </div>
+            </div>
+          </div>
         )}
-      </main>
 
-      {/* Confirmation Modal to Clear Mapa Data */}
-      {showClearConfirm && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-fade-in">
-          <div className="bg-white border border-slate-200 max-w-md w-full rounded-2xl shadow-2xl p-6 relative overflow-hidden">
-            <div className="absolute top-0 inset-x-0 h-1.5 bg-rose-500" />
-            <div className="flex items-start gap-4 text-slate-800">
-              <div className="p-3 rounded-full bg-rose-500/10 text-rose-500">
-                <AlertTriangle className="w-6 h-6" />
+        {/* Confirmation Modal to Clear Occurrences */}
+        {showOccClearConfirm && (
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-fade-in">
+            <div className="bg-white border border-slate-200 max-w-md w-full rounded-2xl shadow-2xl p-6 relative overflow-hidden">
+              <div className="absolute top-0 inset-x-0 h-1.5 bg-rose-500" />
+              <div className="flex items-start gap-4 text-slate-800">
+                <div className="p-3 rounded-full bg-rose-500/10 text-rose-500">
+                  <AlertOctagon className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold uppercase tracking-wide">Limpar Ocorrências?</h3>
+                  <p className="text-sm text-slate-505 mt-2 leading-relaxed">
+                    Você está prestes a apagar todas as ocorrências cadastradas de todas as unidades. Esta operação não poderá ser desfeita. Tem certeza?
+                  </p>
+                </div>
               </div>
-              <div>
-                <h3 className="text-lg font-bold uppercase tracking-wide">Limpar Relatório?</h3>
-                <p className="text-sm text-slate-505 mt-2 leading-relaxed">
-                  Você está prestes a limpar todos os dados preenchidos e redefinir o logotipo. Esta operação não poderá ser desfeita. Tem certeza?
-                </p>
-              </div>
-            </div>
 
-            <div className="flex justify-end gap-3 mt-6">
-              <button
-                onClick={() => setShowClearConfirm(false)}
-                className="px-5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider text-slate-505 bg-slate-100 hover:bg-slate-200 border border-slate-200 transition-all cursor-pointer"
-              >
-                Não
-              </button>
-              <button
-                onClick={handleClearAll}
-                className="px-5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider text-white bg-rose-600 hover:bg-rose-700 border border-rose-600 transition-all cursor-pointer"
-              >
-                Sim
-              </button>
+              <div className="flex justify-end gap-3 mt-6">
+                <button
+                  onClick={() => setShowOccClearConfirm(false)}
+                  className="px-5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider text-slate-505 bg-slate-100 hover:bg-slate-200 border border-slate-200 transition-all cursor-pointer"
+                >
+                  Não
+                </button>
+                <button
+                  onClick={handleClearOccurrences}
+                  className="px-5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider text-white bg-rose-600 hover:bg-rose-700 border border-rose-600 transition-all cursor-pointer"
+                >
+                  Sim
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Confirmation Modal to Clear Occurrences */}
-      {showOccClearConfirm && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-fade-in">
-          <div className="bg-white border border-slate-200 max-w-md w-full rounded-2xl shadow-2xl p-6 relative overflow-hidden">
-            <div className="absolute top-0 inset-x-0 h-1.5 bg-rose-500" />
-            <div className="flex items-start gap-4 text-slate-800">
-              <div className="p-3 rounded-full bg-rose-500/10 text-rose-500">
-                <AlertOctagon className="w-6 h-6" />
-              </div>
-              <div>
-                <h3 className="text-lg font-bold uppercase tracking-wide">Limpar Ocorrências?</h3>
-                <p className="text-sm text-slate-505 mt-2 leading-relaxed">
-                  Você está prestes a apagar todas as ocorrências cadastradas de todas as unidades. Esta operação não poderá ser desfeita. Tem certeza?
-                </p>
-              </div>
-            </div>
+        {/* Modal de Personalização do Plano de Fundo */}
+        {showBgModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+            <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-md w-full p-6 text-slate-900 relative">
+              <button
+                onClick={() => setShowBgModal(false)}
+                className="absolute top-4 right-4 p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
 
-            <div className="flex justify-end gap-3 mt-6">
-              <button
-                onClick={() => setShowOccClearConfirm(false)}
-                className="px-5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider text-slate-505 bg-slate-100 hover:bg-slate-200 border border-slate-200 transition-all cursor-pointer"
-              >
-                Não
-              </button>
-              <button
-                onClick={handleClearOccurrences}
-                className="px-5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider text-white bg-rose-600 hover:bg-rose-700 border border-rose-600 transition-all cursor-pointer"
-              >
-                Sim
-              </button>
+              <div className="flex items-center gap-2.5 pb-4 border-b border-slate-100 mb-5">
+                <div className="p-2 rounded-xl bg-blue-50 text-blue-600">
+                  <ImageIcon className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base text-slate-900">Plano de Fundo</h3>
+                  <p className="text-xs text-slate-500">Personalize o visual e a atmosfera da aplicação</p>
+                </div>
+              </div>
+
+              <div className="space-y-5">
+                {/* Toggle Enable/Disable */}
+                <div className="flex items-center justify-between p-3.5 bg-slate-50 rounded-xl border border-slate-200">
+                  <span className="text-sm font-semibold text-slate-700">Ativar Imagem de Fundo</span>
+                  <button
+                    type="button"
+                    onClick={() => setBgEnabled(!bgEnabled)}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer ${bgEnabled ? 'bg-blue-600' : 'bg-slate-300'}`}
+                  >
+                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${bgEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                  </button>
+                </div>
+
+                {/* Presets */}
+                <div>
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2 block">
+                    Modelos Prontos
+                  </label>
+                  <div className="grid grid-cols-3 gap-2.5">
+                    <button
+                      type="button"
+                      onClick={() => { setBgUrl('/bg-btl-leste.jpg'); setBgEnabled(true); }}
+                      className={`p-2.5 rounded-xl border text-xs font-medium text-center flex flex-col items-center gap-1.5 transition-all cursor-pointer ${bgUrl === '/bg-btl-leste.jpg' && bgEnabled ? 'border-blue-600 bg-blue-50/50 text-blue-700 font-bold shadow-sm' : 'border-slate-200 hover:border-slate-300 text-slate-700'}`}
+                    >
+                      <div className="w-full h-12 rounded-lg bg-cover bg-center border border-slate-200" style={{ backgroundImage: `url('/bg-btl-leste.jpg')` }} />
+                      <span>BTL Leste Oficial</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => { setBgUrl('/bg-tactical.jpg'); setBgEnabled(true); }}
+                      className={`p-2.5 rounded-xl border text-xs font-medium text-center flex flex-col items-center gap-1.5 transition-all cursor-pointer ${bgUrl === '/bg-tactical.jpg' && bgEnabled ? 'border-blue-600 bg-blue-50/50 text-blue-700 font-bold shadow-sm' : 'border-slate-200 hover:border-slate-300 text-slate-700'}`}
+                    >
+                      <div className="w-full h-12 rounded-lg bg-cover bg-center border border-slate-200" style={{ backgroundImage: `url('/bg-tactical.jpg')` }} />
+                      <span>Centro Tático</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => { setBgUrl('/logos/cpa-leste.png'); setBgEnabled(true); }}
+                      className={`p-2.5 rounded-xl border text-xs font-medium text-center flex flex-col items-center gap-1.5 transition-all cursor-pointer ${bgUrl === '/logos/cpa-leste.png' && bgEnabled ? 'border-blue-600 bg-blue-50/50 text-blue-700 font-bold shadow-sm' : 'border-slate-200 hover:border-slate-300 text-slate-700'}`}
+                    >
+                      <div className="w-full h-12 rounded-lg bg-contain bg-center bg-no-repeat bg-slate-100 border border-slate-200 p-1" style={{ backgroundImage: `url('/logos/cpa-leste.png')` }} />
+                      <span>Brasão CPA</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Upload Custom Image */}
+                <div>
+                  <input
+                    ref={bgFileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleBgUpload}
+                    className="hidden"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => bgFileInputRef.current?.click()}
+                    className="w-full py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl flex items-center justify-center gap-2 border border-slate-300/80 transition-colors cursor-pointer"
+                  >
+                    <Upload className="w-4 h-4 text-slate-600" />
+                    Carregar Imagem do Computador
+                  </button>
+                </div>
+
+                {/* Overlay Opacity Slider */}
+                <div className="pt-2 border-t border-slate-100">
+                  <div className="flex justify-between items-center mb-1.5">
+                    <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                      <SlidersHorizontal className="w-3.5 h-3.5 text-blue-600" />
+                      Intensidade da Película de Leitura
+                    </label>
+                    <span className="text-xs font-bold text-blue-600">{bgOverlayOpacity}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="40"
+                    max="95"
+                    value={bgOverlayOpacity}
+                    onChange={(e) => setBgOverlayOpacity(Number(e.target.value))}
+                    className="w-full accent-blue-600 cursor-pointer"
+                  />
+                  <div className="flex justify-between text-[10px] text-slate-400 mt-0.5">
+                    <span>Mais visível (40%)</span>
+                    <span>Máxima nitidez (95%)</span>
+                  </div>
+                </div>
+
+                {/* Reset to standard */}
+                <div className="flex gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={resetBg}
+                    className="w-full py-2 text-xs font-medium text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                  >
+                    Restaurar Padrão
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowBgModal(false)}
+                    className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg shadow transition-colors cursor-pointer"
+                  >
+                    Concluir
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Footer institutional */}
-      <footer className="text-center text-slate-500 text-xs mt-12 px-6">
-        <p className="font-semibold">Batalhão Leste © 2026 - Polícia Militar do Amazonas</p>
-        <p className="mt-1">PWA offline habilitado. Seus dados são salvos localmente e permanecem protegidos.</p>
-      </footer>
+        {/* Footer institutional */}
+        <footer className="text-center text-slate-500 text-xs mt-12 px-6">
+          <p className="font-semibold">Batalhão Leste © 2026 - Polícia Militar do Amazonas</p>
+          <p className="mt-1">PWA offline habilitado. Seus dados são salvos localmente e permanecem protegidos.</p>
+        </footer>
+      </div>
     </div>
   );
 }
