@@ -20,7 +20,11 @@ try {
       return '';
     };
 
+    const rawId = row['Id'] !== undefined ? row['Id'] : (row['id'] !== undefined ? row['id'] : row['ID']);
+    const parsedId = rawId !== undefined && rawId !== null ? Number(rawId) : undefined;
+
     return {
+      ...(parsedId !== undefined && !isNaN(parsedId) ? { id: parsedId } : {}),
       rg: getVal(['rg', 'RG', 'Rg', 'matricula']),
       nome: getVal(['nome', 'Nome', 'NOME']),
       nomeGuerra: getVal(['nome_guerra', 'nomeGuerra', 'Nome de Guerra', 'NOME_GUERRA']),
